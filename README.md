@@ -21,7 +21,7 @@ Current version: **0.1.0** (first port, not yet verified on hardware).
 | Olimex RP2040-PICO-PC with a Pico 2 | `PCp2` | HDMI (DVI connector) | PWM (3.5 mm jack) |
 | Waveshare RP2350-PiZero | `z0p2` | mini-HDMI | I2S (an external PCM5102A module on GP10..12) |
 
-Firmware files are named `<prefix>-j2me-<video>-<sound>-<version>.uf2`.
+Firmware files are named `<prefix>-j2me-<video>-<sound>-<cpu>MHz-<version>.uf2`.
 
 **QSPI PSRAM is needed** for real games: the Java heap (half of the PSRAM,
 at most 4 MB), the game's jar, the class metadata and decoded sounds live
