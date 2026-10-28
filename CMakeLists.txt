@@ -1,4 +1,4 @@
-# Nano Java for RP2350 boards (Murmulator 1.x / 2.0, Olimex RP2350-PICO-PC,
+# pico-j2me for RP2350 boards (Murmulator 1.x / 2.0, Olimex RP2350-PICO-PC,
 # Waveshare RP2350-PiZero) with QSPI PSRAM.
 #
 #   cmake -B build-rp2350 -DPICO_BOARD=murmulator2 -DHDMI=ON
@@ -214,7 +214,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     tinyusb_board
 )
 
-pico_set_program_name(${PROJECT_NAME} "Nano Java: J2ME (MIDP 2.0) for RP2350")
+pico_set_program_name(${PROJECT_NAME} "pico-j2me: J2ME (MIDP 2.0) for RP2350")
 pico_set_program_version(${PROJECT_NAME} "${PICO_J2ME_VERSION}")
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
 pico_enable_stdio_usb(${PROJECT_NAME} 0)

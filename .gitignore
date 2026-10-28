@@ -11,3 +11,4 @@
 # Third-party games used for manual testing are not part of the repo.
 tests/*.jar
 tests/*.jad
+.vscode/

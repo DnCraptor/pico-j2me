@@ -71,7 +71,7 @@ void pal_log_tail(char *out, size_t size, int lines)
 void pal_fatal(const char *msg)
 {
     audio_pause(true);
-    ui_message("Nano Java stopped", msg, true);
+    ui_message("pico-j2me stopped", msg, true);
     nj_safe_reset();
 }
 

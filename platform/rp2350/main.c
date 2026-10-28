@@ -264,7 +264,7 @@ int main(void)
         tight_loop_contents();
 
     nj_sd_ok = f_mount(&fs, "", 1) == FR_OK;
-    printf("Nano Java %s, %u MHz, PSRAM %u KB, SD %s\n", NJ_VERSION, CPU_MHZ,
+    printf("pico-j2me %s, %u MHz, PSRAM %u KB, SD %s\n", NJ_VERSION, CPU_MHZ,
            (unsigned)(psram_size() >> 10), nj_sd_ok ? "ok" : "missing");
 
     char *path = NULL;
