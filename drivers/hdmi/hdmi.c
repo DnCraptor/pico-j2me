@@ -180,9 +180,14 @@ static void pio_set_x(PIO pio, const int sm, uint32_t v) {
 }
 
 
+/* Lookups used directly in the scanline DMA IRQ must not fetch through XIP.
+ * SCRATCH_Y is unused by the two core stacks in pico-j2me. */
+static uint8_t __scratch_y("hdmi_font") hdmi_font[sizeof font_6x8];
+static uint8_t __scratch_y("hdmi_text_palette") hdmi_text_palette[sizeof textmode_palette];
+
 /* 3x / stretched picture (and 2x with gray lines): the buffer row of every
  * screen line, -1 - none */
-static int16_t line_row[480];
+static int16_t __scratch_y("hdmi_line_row") line_row[480];
 static int line_row_h = -1, line_row_w = -1, line_row_scale = -1;
 static int stretch_k = 2; // stretch: whole samples per pixel
 static int fit_n = 2;     // fit: physical pixels per buffer pixel (2 = one sample)
@@ -222,8 +227,7 @@ static void line_rows_update(void) {
     line_row_scale = (int)graphics_scale;
 }
 
-/* in RAM, not in SCRATCH_Y: SCRATCH_Y is the stack of core 0, and code there
- * leaves the stack too little room (it grew into this handler) */
+/* The handler and its fast_mem* helpers already execute from SRAM. */
 static void __not_in_flash_func(dma_handler_HDMI)() {
     static uint32_t inx_buf_dma;
     static uint line = 0;
@@ -278,7 +282,7 @@ static void __not_in_flash_func(dma_handler_HDMI)() {
                 const int len = overlay_text_len[index];
                 const int x0 = (SCREEN_WIDTH - len * 6) / 2;
                 for (int c = 0; c < len; ++c) {
-                    uint8_t bits = font_6x8[(uint8_t)str[c] * 8 + (y - OVERLAY_TEXT_Y)];
+                    uint8_t bits = hdmi_font[(uint8_t)str[c] * 8 + (y - OVERLAY_TEXT_Y)];
                     for (int x = 0; x < 6; ++x, bits >>= 1)
                         if (bits & 1) output_buffer[x0 + c * 6 + x] = GRAPHICS_OSD_FG;
                 }
@@ -424,12 +428,12 @@ static void __not_in_flash_func(dma_handler_HDMI)() {
                     const uint16_t offset = (y / 8) * (TEXTMODE_COLS * 2) + x * 2;
                     const uint8_t c = text_buffer[offset];
                     const uint8_t colorIndex = text_buffer[offset + 1];
-                    uint8_t glyph_row = font_6x8[c * 8 + y % 8];
+                    uint8_t glyph_row = hdmi_font[c * 8 + y % 8];
 
                     for (int bit = 6; bit--;) {
                         *output_buffer++ = glyph_row & 1
-                                               ? textmode_palette[colorIndex & 0xf] //цвет шрифта
-                                               : textmode_palette[colorIndex >> 4]; //цвет фона
+                                               ? hdmi_text_palette[colorIndex & 0xf] //цвет шрифта
+                                               : hdmi_text_palette[colorIndex >> 4]; //цвет фона
 
                         glyph_row >>= 1;
                     }
@@ -776,6 +780,9 @@ void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height) {
 
 //выделение и настройка общих ресурсов - 4 DMA канала, PIO программ и 2 SM
 void graphics_init() {
+    memcpy(hdmi_font, font_6x8, sizeof hdmi_font);
+    memcpy(hdmi_text_palette, textmode_palette, sizeof hdmi_text_palette);
+
     //настройка PIO
 #if beginHDMI_PIN_data >= 32
     // RP2350B: GPIO32..39 are addressed through GPIO base 16 of PIO0.

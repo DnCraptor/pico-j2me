@@ -30,7 +30,7 @@ option(HDMI "HDMI output" OFF)
 option(I2S "Sound on an I2S DAC (OFF: PWM)" ON)
 option(I2S_CS4334 "I2S DAC is a CS4334" OFF)
 option(USB_HID "USB keyboard on the native USB port (TinyUSB host)" ON)
-set(CPU_MHZ "" CACHE STRING "clk_sys in MHz (empty: the board's choice, else 378)")
+set(CPU_MHZ "378" CACHE STRING "clk_sys in MHz (empty: the board's choice, else 378)")
 
 if(${PICO_BOARD} MATCHES "waveshare_rp2350_pizero")
     # RP2350B, 16 MB flash, HDMI on GPIO32..39, PCM5102A on I2S

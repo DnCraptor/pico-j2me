@@ -40,7 +40,9 @@ typedef struct {
 static Channel       channels[SYNTH_CHANNELS];
 static spin_lock_t  *lock;
 static i2s_config_t  i2s;
-static int16_t       block[BLOCK * 2];
+static int16_t       block[2][BLOCK * 2];
+static int           dma_block = -1;
+static int           prepared_block = -1;
 static volatile bool paused = true;
 static volatile int  master = 80;
 
@@ -200,22 +202,51 @@ void audio_core1_init(void)
     i2s_init(&i2s);
 }
 
-/* Core 1 main loop: refills the DMA block when the previous one is done. */
-void __not_in_flash_func(audio_core1_poll)(void)
+/* Core 1 is also responsible for the HDMI scanline IRQ.  Never mask its
+ * interrupts for the duration of audio synthesis: a missed scanline IRQ
+ * corrupts the HDMI timing.  Only core 0 uses this synthesizer lock from
+ * task context; the video IRQ does not touch the synthesizer. */
+static void __not_in_flash_func(audio_render_block)(int which)
 {
-    if (dma_channel_is_busy(i2s.dma_channel))
-        return;
     if (paused) {
-        memset(block, 0, sizeof block);
+        memset(block[which], 0, sizeof block[which]);
     } else {
-        uint32_t save = spin_lock_blocking(lock);
+        spin_lock_unsafe_blocking(lock);
         for (int t = 0; t < BLOCK / TICK_FRAMES; t++) {
             synth_tick(TICK_MS);
-            mix(block + 2 * t * TICK_FRAMES, TICK_FRAMES);
+            mix(block[which] + 2 * t * TICK_FRAMES, TICK_FRAMES);
         }
-        spin_unlock(lock, save);
+        spin_unlock_unsafe(lock);
     }
-    i2s_dma_write(&i2s, block);
+}
+
+/* Prepare one block while the preceding one is still being transmitted.
+ * The driver owns a separate DMA buffer, so the prepared samples remain
+ * untouched until i2s_dma_write copies them after DMA completion. */
+void __not_in_flash_func(audio_core1_poll)(void)
+{
+    if (dma_block < 0) {
+        audio_render_block(0);
+        i2s_dma_write(&i2s, block[0]);
+        dma_block = 0;
+        return;
+    }
+
+    const int next = dma_block ^ 1;
+    if (dma_channel_is_busy(i2s.dma_channel)) {
+        if (prepared_block < 0) {
+            audio_render_block(next);
+            prepared_block = next;
+        }
+        return;
+    }
+
+    /* Normally ready already; render here only after an actual overrun. */
+    if (prepared_block != next)
+        audio_render_block(next);
+    i2s_dma_write(&i2s, block[next]);
+    dma_block = next;
+    prepared_block = -1;
 }
 
 void audio_pause(bool p)

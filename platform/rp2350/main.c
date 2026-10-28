@@ -52,7 +52,7 @@ static void overclock(void)
 {
     volatile uint32_t *qmi_m0_timing = (uint32_t *)0x400d000c;
     vreg_disable_voltage_limit();
-    vreg_set_voltage(CPU_MHZ > 300 ? VREG_VOLTAGE_1_60 : VREG_VOLTAGE_1_30);
+    vreg_set_voltage(CPU_MHZ > 300 ? VREG_VOLTAGE_1_65 : VREG_VOLTAGE_1_30);
     sleep_ms(10);
     /* flash: slower QMI clock while clk_sys changes, then the final one */
     *qmi_m0_timing = 0x60007204;

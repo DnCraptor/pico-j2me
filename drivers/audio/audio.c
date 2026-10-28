@@ -96,6 +96,11 @@ void i2s_init(i2s_config_t *i2s_config) {
 #else
     uint offset = pio_add_program(i2s_config->pio, &audio_i2s_program);
     audio_i2s_program_init(i2s_config->pio, i2s_config->sm , offset, i2s_config->data_pin , i2s_config->clock_pin_base);
+    /* The normal I2S program pulls a 32-bit stereo frame explicitly and
+     * repeats the preceding frame when the TX FIFO is empty.  Its frame
+     * now takes 66 PIO cycles (was 64); retain the requested sample rate. */
+    divider = (uint32_t)(((uint64_t)system_clock_frequency << 8) /
+                         (66ull * i2s_config->sample_freq));
 
 #endif
 
