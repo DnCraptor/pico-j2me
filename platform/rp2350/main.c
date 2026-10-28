@@ -48,16 +48,31 @@ static FATFS fs;
 /* ------------------------------------------------------------------------ */
 /* Clocks and reset                                                         */
 
-static void overclock(void)
+static void __no_inline_not_in_flash_func(overclock)(void)
 {
     volatile uint32_t *qmi_m0_timing = (uint32_t *)0x400d000c;
     vreg_disable_voltage_limit();
     vreg_set_voltage(CPU_MHZ > 300 ? VREG_VOLTAGE_1_65 : VREG_VOLTAGE_1_30);
-    sleep_ms(10);
-    /* flash: slower QMI clock while clk_sys changes, then the final one */
-    *qmi_m0_timing = 0x60007204;
+    sleep_ms(CPU_MHZ > 378 ? 100 : 10);
+    /* At 504 MHz, /3 runs QSPI flash at 168 MHz instead of 126 MHz.
+     * Keep the <=378 MHz profile unchanged.  Above that, limit flash
+     * to 126 MHz and use a conservative divider during PLL relocking. */
+#if CPU_MHZ > 378
+    const uint32_t flash_div = (CPU_MHZ + 125u) / 126u;
+    const uint32_t flash_rxdelay = flash_div;
+    *qmi_m0_timing = 0x60007608u; /* transition: /8, RXDELAY=6 */
+#else
+    *qmi_m0_timing = 0x60007204u;
+#endif
+    __dsb();
+    (void)*(volatile const uint32_t *)0x10000000u;
+    __dsb();
     set_sys_clock_khz(CPU_MHZ * 1000, false);
-    *qmi_m0_timing = 0x60007303;
+#if CPU_MHZ > 378
+    *qmi_m0_timing = 0x60007000u | (flash_rxdelay << 8) | flash_div;
+#else
+    *qmi_m0_timing = 0x60007303u;
+#endif
 }
 
 /* Ctrl+Alt+Del, the menu's Reboot and fatal errors: the PSRAM must leave

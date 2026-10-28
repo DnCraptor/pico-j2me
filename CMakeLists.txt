@@ -30,7 +30,7 @@ option(HDMI "HDMI output" OFF)
 option(I2S "Sound on an I2S DAC (OFF: PWM)" ON)
 option(I2S_CS4334 "I2S DAC is a CS4334" OFF)
 option(USB_HID "USB keyboard on the native USB port (TinyUSB host)" ON)
-set(CPU_MHZ "378" CACHE STRING "clk_sys in MHz (empty: the board's choice, else 378)")
+set(CPU_MHZ "504" CACHE STRING "clk_sys in MHz (empty: the board's choice, else 378)")
 
 if(${PICO_BOARD} MATCHES "waveshare_rp2350_pizero")
     # RP2350B, 16 MB flash, HDMI on GPIO32..39, PCM5102A on I2S
@@ -149,9 +149,16 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     PICO_STACK_SIZE=0x4000
     PICO_CORE1_STACK_SIZE=0x800
 )
+# Keep the UF2 clock label in sync with the value compiled into firmware.
+# An explicit -DCPU_MHZ overrides the board's default.
 if(CPU_MHZ)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE CPU_MHZ=${CPU_MHZ})
+    set(J2ME_CPU_MHZ "${CPU_MHZ}")
+elseif(PICO_BOARD STREQUAL "waveshare_rp2350_pizero")
+    set(J2ME_CPU_MHZ 252)
+else()
+    set(J2ME_CPU_MHZ 378)
 endif()
+target_compile_definitions(${PROJECT_NAME} PRIVATE CPU_MHZ=${J2ME_CPU_MHZ})
 
 # The core 0 stack moves to the main RAM (platform/rp2350/memmap.ld).
 pico_set_linker_script(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/platform/rp2350/memmap.ld)
@@ -191,6 +198,7 @@ elseif(I2S_CS4334)
 else()
     set(BUILD_NAME "${BUILD_NAME}-I2S")
 endif()
+set(BUILD_NAME "${BUILD_NAME}-${J2ME_CPU_MHZ}MHz")
 
 if(USB_HID)
     target_compile_definitions(${PROJECT_NAME} PRIVATE KBDUSB)
