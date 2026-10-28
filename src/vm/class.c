@@ -58,7 +58,7 @@ void class_reset(void)
 {
     for (int i = 0; i < TABLE_SIZE; i++) {
         for (Class *c = table[i]; c; c = c->hash_next)
-            free(c->statics);
+            pal_free(c->statics);
         table[i] = NULL;
     }
     n_sources = 0;
@@ -121,7 +121,7 @@ Class *class_array_of(Class *elem)
     if (elem->array_class)
         return elem->array_class;
     size_t n = strlen(elem->name);
-    char  *name = malloc(n + 4);
+    char  *name = pal_malloc(n + 4);
     if (elem->flags & CF_ARRAY)
         sprintf(name, "[%s", elem->name);
     else
@@ -129,7 +129,7 @@ Class *class_array_of(Class *elem)
     Class *c = class_find_loaded(name);
     if (!c)
         c = make_array_class(name, (elem->flags & CF_ARRAY) ? '[' : 'L', elem);
-    free(name);
+    pal_free(name);
     elem->array_class = c;
     return c;
 }
@@ -147,11 +147,11 @@ static Class *load_array(const char *name)
             set_error("bad array class name %s%s", name, NULL);
             return NULL;
         }
-        char *elem = malloc(n);
+        char *elem = pal_malloc(n);
         memcpy(elem, name + 2, n - 3);
         elem[n - 3] = 0;
         Class *e = class_load(elem);
-        free(elem);
+        pal_free(elem);
         return e ? class_array_of(e) : NULL;
     }
     if (name[2] != 0 || !strchr("ZBCSIFJD", t)) {
@@ -308,14 +308,14 @@ Class *class_load(const char *name)
         return load_array(name);
 
     size_t   n = strlen(name);
-    char    *path = malloc(n + 7);
+    char    *path = pal_malloc(n + 7);
     memcpy(path, name, n);
     memcpy(path + n, ".class", 7);
     uint8_t *data = NULL;
     uint32_t len = 0;
     for (int i = 0; i < n_sources && !data; i++)
         data = sources[i](path, &len);
-    free(path);
+    pal_free(path);
     if (!data) {
         set_error("%s%s", name, NULL);
         return NULL;
@@ -323,7 +323,7 @@ Class *class_load(const char *name)
 
     const char *err;
     c = classfile_parse(data, len, &err);
-    free(data);
+    pal_free(data);
     if (!c) {
         set_error("%s: %s", name, err);
         return NULL;

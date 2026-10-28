@@ -3,6 +3,7 @@
  * blits with transforms and alpha.
  */
 #include "gfx.h"
+#include "../pal/pal_sys.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -262,7 +263,7 @@ void gfx_blit(Surface *dst, const Clip *c, const Surface *src, int sx, int sy, i
     const uint16_t *spx = src->px;
     int sstride = src->w;
     if (src == dst) {
-        tmp = malloc((size_t)w * h * 2);
+        tmp = pal_malloc((size_t)w * h * 2);
         if (!tmp)
             return;
         for (int y = 0; y < h; y++)
@@ -291,7 +292,7 @@ void gfx_blit(Surface *dst, const Clip *c, const Surface *src, int sx, int sy, i
             }
         }
     }
-    free(tmp);
+    pal_free(tmp);
 }
 
 void gfx_draw_rgb(Surface *dst, const Clip *c, const int32_t *rgb, int offset, int scan,

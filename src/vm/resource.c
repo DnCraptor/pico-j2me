@@ -24,18 +24,16 @@ static uint8_t *read_file(const char *dir, const char *path, uint32_t *len)
 {
     char full[512];
     snprintf(full, sizeof full, "%s/%s", dir, path[0] == '/' ? path + 1 : path);
-    FILE *f = fopen(full, "rb");
+    PalFile *f = pal_fopen(full, false);
     if (!f)
         return NULL;
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    uint8_t *buf = size >= 0 ? malloc((size_t)size + 1) : NULL;
-    if (buf && fread(buf, 1, (size_t)size, f) != (size_t)size) {
-        free(buf);
+    uint32_t size = pal_fsize(f);
+    uint8_t *buf = pal_malloc((size_t)size + 1);
+    if (buf && pal_fread(f, buf, size) != size) {
+        pal_free(buf);
         buf = NULL;
     }
-    fclose(f);
+    pal_fclose(f);
     if (buf) {
         buf[size] = 0;
         *len = (uint32_t)size;
@@ -68,8 +66,8 @@ static uint32_t jad_len;
 
 void res_set_jad(const uint8_t *data, uint32_t len)
 {
-    free(jad_data);
-    jad_data = malloc(len + 1);
+    pal_free(jad_data);
+    jad_data = pal_malloc(len + 1);
     memcpy(jad_data, data, len);
     jad_len = len;
 }
@@ -98,7 +96,7 @@ void res_reset(void)
         zip_close(app_zips[i]);
     system_zip = NULL;
     n_app_zips = n_app_dirs = 0;
-    free(jad_data);
+    pal_free(jad_data);
     jad_data = NULL;
     jad_len = 0;
     sources_added = false;

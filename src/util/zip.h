@@ -5,7 +5,6 @@
 #define NJ_ZIP_H
 
 #include <stdint.h>
-#include <stdio.h>
 
 typedef struct ZipEntry {
     const char      *name;

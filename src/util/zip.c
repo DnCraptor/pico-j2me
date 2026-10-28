@@ -4,6 +4,7 @@
  * directory and skips anything it does not understand.
  */
 #include "zip.h"
+#include "../pal/pal_sys.h"
 #include "inflate.h"
 
 #include <stdlib.h>
@@ -11,7 +12,7 @@
 
 struct Zip {
     const uint8_t *mem;      /* in-memory archive, or NULL */
-    FILE          *file;
+    PalFile       *file;
     uint32_t       size;
     ZipEntry      *entries;
     uint32_t       n;
@@ -36,9 +37,9 @@ static int read_at(Zip *z, uint32_t off, void *dst, uint32_t len)
         memcpy(dst, z->mem + off, len);
         return 0;
     }
-    if (fseek(z->file, (long)off, SEEK_SET) != 0)
+    if (!pal_fseek(z->file, off))
         return -1;
-    return fread(dst, 1, len, z->file) == len ? 0 : -1;
+    return pal_fread(z->file, dst, len) == len ? 0 : -1;
 }
 
 static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
@@ -51,9 +52,9 @@ static int parse(Zip *z)
 {
     /* Locate the end-of-central-directory record. */
     uint32_t tail = z->size < 65557 ? z->size : 65557;
-    uint8_t *buf = malloc(tail);
+    uint8_t *buf = pal_malloc(tail);
     if (!buf || read_at(z, z->size - tail, buf, tail) != 0) {
-        free(buf);
+        pal_free(buf);
         return -1;
     }
     int eocd = -1;
@@ -64,28 +65,28 @@ static int parse(Zip *z)
         }
     }
     if (eocd < 0) {
-        free(buf);
+        pal_free(buf);
         return -1;
     }
     uint32_t count = le16(buf + eocd + 10);
     uint32_t cd_size = le32(buf + eocd + 12);
     uint32_t cd_off = le32(buf + eocd + 16);
-    free(buf);
+    pal_free(buf);
 
-    uint8_t *cd = malloc(cd_size ? cd_size : 1);
+    uint8_t *cd = pal_malloc(cd_size ? cd_size : 1);
     if (!cd || read_at(z, cd_off, cd, cd_size) != 0) {
-        free(cd);
+        pal_free(cd);
         return -1;
     }
 
-    z->entries = calloc(count ? count : 1, sizeof(ZipEntry));
-    z->names = malloc(cd_size + 1);
+    z->entries = pal_calloc(count ? count : 1, sizeof(ZipEntry));
+    z->names = pal_malloc(cd_size + 1);
     z->nbuckets = 16;
     while (z->nbuckets < count)
         z->nbuckets <<= 1;
-    z->buckets = calloc(z->nbuckets, sizeof(ZipEntry *));
+    z->buckets = pal_calloc(z->nbuckets, sizeof(ZipEntry *));
     if (!z->entries || !z->names || !z->buckets) {
-        free(cd);
+        pal_free(cd);
         return -1;
     }
 
@@ -115,7 +116,7 @@ static int parse(Zip *z)
         z->n++;
         p += 46 + nlen + xlen + clen;
     }
-    free(cd);
+    pal_free(cd);
     return 0;
 }
 
@@ -130,7 +131,7 @@ static Zip *finish_open(Zip *z)
 
 Zip *zip_open_mem(const uint8_t *data, uint32_t size)
 {
-    Zip *z = calloc(1, sizeof *z);
+    Zip *z = pal_calloc(1, sizeof *z);
     if (!z)
         return NULL;
     z->mem = data;
@@ -140,17 +141,16 @@ Zip *zip_open_mem(const uint8_t *data, uint32_t size)
 
 Zip *zip_open_file(const char *path)
 {
-    FILE *f = fopen(path, "rb");
+    PalFile *f = pal_fopen(path, false);
     if (!f)
         return NULL;
-    Zip *z = calloc(1, sizeof *z);
+    Zip *z = pal_calloc(1, sizeof *z);
     if (!z) {
-        fclose(f);
+        pal_fclose(f);
         return NULL;
     }
     z->file = f;
-    fseek(f, 0, SEEK_END);
-    z->size = (uint32_t)ftell(f);
+    z->size = pal_fsize(f);
     return finish_open(z);
 }
 
@@ -159,11 +159,11 @@ void zip_close(Zip *z)
     if (!z)
         return;
     if (z->file)
-        fclose(z->file);
-    free(z->entries);
-    free(z->names);
-    free(z->buckets);
-    free(z);
+        pal_fclose(z->file);
+    pal_free(z->entries);
+    pal_free(z->names);
+    pal_free(z->buckets);
+    pal_free(z);
 }
 
 ZipEntry *zip_find(Zip *z, const char *name)
@@ -191,22 +191,22 @@ uint8_t *zip_read(Zip *z, ZipEntry *e, uint32_t *len)
         return NULL;
     uint32_t data_off = e->local_off + 30 + le16(hdr + 26) + le16(hdr + 28);
 
-    uint8_t *out = malloc(e->usize + 1);
+    uint8_t *out = pal_malloc(e->usize + 1);
     if (!out)
         return NULL;
     if (e->method == 0) {
         if (read_at(z, data_off, out, e->usize) != 0)
             goto fail;
     } else if (e->method == 8) {
-        uint8_t *in = malloc(e->csize ? e->csize : 1);
+        uint8_t *in = pal_malloc(e->csize ? e->csize : 1);
         if (!in)
             goto fail;
         if (read_at(z, data_off, in, e->csize) != 0 ||
             nj_inflate(out, e->usize, in, e->csize) != (int32_t)e->usize) {
-            free(in);
+            pal_free(in);
             goto fail;
         }
-        free(in);
+        pal_free(in);
     } else {
         goto fail;
     }
@@ -215,7 +215,7 @@ uint8_t *zip_read(Zip *z, ZipEntry *e, uint32_t *len)
         *len = e->usize;
     return out;
 fail:
-    free(out);
+    pal_free(out);
     return NULL;
 }
 

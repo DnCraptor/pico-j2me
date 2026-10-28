@@ -176,11 +176,11 @@ static int Class_getName(Thread *t, Slot *args, Slot *ret)
 {
     const char *n = class_from_mirror(THIS)->name;
     size_t      len = strlen(n);
-    char       *buf = malloc(len + 1);
+    char       *buf = pal_malloc(len + 1);
     for (size_t i = 0; i <= len; i++)
         buf[i] = n[i] == '/' ? '.' : n[i];
     ret->ref = str_new_utf8(t, buf);
-    free(buf);
+    pal_free(buf);
     return NATIVE_OK;
 }
 
@@ -674,7 +674,7 @@ static int Resources_read(Thread *t, Slot *args, Slot *ret)
     Array *a = vm_new_prim_array(t, 'B', (jint)len);
     if (a)
         memcpy(ARRAY_DATA(a, uint8_t), data, len);
-    free(data);
+    pal_free(data);
     ret->ref = (Object *)a;
     return NATIVE_OK;
 }

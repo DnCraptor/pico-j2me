@@ -250,7 +250,7 @@ Class *classfile_parse(const uint8_t *data, uint32_t len, const char **err)
     c->n_interfaces = u2(&r);
     uint16_t *iface_idx = NULL;
     if (c->n_interfaces) {
-        iface_idx = malloc(c->n_interfaces * sizeof *iface_idx);
+        iface_idx = pal_malloc(c->n_interfaces * sizeof *iface_idx);
         for (int i = 0; i < c->n_interfaces; i++)
             iface_idx[i] = u2(&r);
     }
@@ -321,7 +321,7 @@ Class *classfile_parse(const uint8_t *data, uint32_t len, const char **err)
     }
 
     if (r.bad) {
-        free(iface_idx);
+        pal_free(iface_idx);
         *err = "truncated class file";
         return NULL;
     }
@@ -334,12 +334,12 @@ Class *classfile_parse(const uint8_t *data, uint32_t len, const char **err)
     for (int i = 0; i < c->n_interfaces; i++) {
         names[i + 1] = cp_class_name(c, iface_idx[i]);
         if (!names[i + 1]) {
-            free(iface_idx);
+            pal_free(iface_idx);
             *err = "bad interface name";
             return NULL;
         }
     }
-    free(iface_idx);
+    pal_free(iface_idx);
     c->interfaces = (Class **)names;  /* replaced by class.c when linking */
     c->state = CLS_LOADED;
     return c;

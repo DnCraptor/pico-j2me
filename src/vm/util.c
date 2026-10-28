@@ -10,7 +10,7 @@
 
 void *nj_alloc(size_t n)
 {
-    void *p = calloc(1, n ? n : 1);
+    void *p = pal_calloc(1, n ? n : 1);
     if (!p)
         nj_fatal("out of native memory (%u bytes)", (unsigned)n);
     return p;
@@ -42,7 +42,7 @@ void nj_meta_free_all(void)
 {
     while (meta_blocks) {
         MetaBlock *next = meta_blocks->next;
-        free(meta_blocks);
+        pal_free(meta_blocks);
         meta_blocks = next;
     }
     meta_cur = NULL;

@@ -65,7 +65,7 @@ static inline bool bit_test(const void *p)
 void heap_init(size_t size)
 {
     size &= ~(size_t)(GRANULE - 1);
-    heap_start = malloc(size);
+    heap_start = pal_heap_alloc(size);
     if (!heap_start)
         nj_fatal("cannot allocate a %u byte heap", (unsigned)size);
     heap_end = heap_start + size;
@@ -86,9 +86,9 @@ void heap_shutdown(void)
         if (o->cls && o->mon)
             monitor_free(o->mon);
     }
-    free(heap_start);
-    free(start_bits);
-    free(weak_list);
+    pal_heap_free(heap_start);
+    pal_free(start_bits);
+    pal_free(weak_list);
     heap_start = heap_end = NULL;
     start_bits = NULL;
     weak_list = NULL;
@@ -267,7 +267,7 @@ static void add_weak(Object *o)
 {
     if (weak_count == weak_cap) {
         weak_cap = weak_cap ? weak_cap * 2 : 32;
-        weak_list = realloc(weak_list, sizeof(Object *) * weak_cap);
+        weak_list = pal_realloc(weak_list, sizeof(Object *) * weak_cap);
         if (!weak_list)
             nj_fatal("out of memory in GC");
     }

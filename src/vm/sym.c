@@ -32,7 +32,7 @@ static void grow(void)
             h = (h + 1) & (ncap - 1);
         nt[h] = s;
     }
-    free(table);
+    pal_free(table);
     table = nt;
     cap = ncap;
 }
@@ -65,7 +65,7 @@ const char *sym_intern(const char *s)
 
 void sym_reset(void)
 {
-    free(table);
+    pal_free(table);
     table = NULL;
     cap = count = 0;
 }

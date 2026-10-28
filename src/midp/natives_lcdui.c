@@ -380,8 +380,8 @@ static int Image_initRegion(Thread *t, Slot *args, Slot *ret)
     if (has_alpha) {
         /* Transform the alpha plane by blitting it as a fake surface of
          * 16-bit values. */
-        uint16_t *a16 = malloc(sizeof(uint16_t) * (size_t)src.w * src.h);
-        uint16_t *o16 = malloc(sizeof(uint16_t) * (size_t)dw * dh);
+        uint16_t *a16 = pal_malloc(sizeof(uint16_t) * (size_t)src.w * src.h);
+        uint16_t *o16 = pal_malloc(sizeof(uint16_t) * (size_t)dw * dh);
         if (a16 && o16) {
             for (int i = 0; i < src.w * src.h; i++)
                 a16[i] = src.alpha[i];
@@ -391,8 +391,8 @@ static int Image_initRegion(Thread *t, Slot *args, Slot *ret)
             for (int i = 0; i < dw * dh; i++)
                 al[i] = (uint8_t)o16[i];
         }
-        free(a16);
-        free(o16);
+        pal_free(a16);
+        pal_free(o16);
     }
     return NATIVE_OK;
 }

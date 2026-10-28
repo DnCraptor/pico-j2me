@@ -344,7 +344,8 @@ static void dispatch(int slot, const NjaEvent *e)
             note_on(slot, c, e->d1, e->d2);
             break;
         }
-        /* fall through: note on with velocity 0 is a note off */
+        /* A note on with velocity 0 is a note off. */
+        /* fall through */
     case 0x80:
         note_off(slot, c, e->d1);
         break;

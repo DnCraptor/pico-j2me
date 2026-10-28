@@ -171,7 +171,7 @@ static void intern_grow(void)
             h = (h + 1) & (ncap - 1);
         nt[h] = s;
     }
-    free(intern_tab);
+    pal_free(intern_tab);
     intern_tab = nt;
     intern_cap = ncap;
 }
@@ -205,7 +205,7 @@ Object *str_literal(Thread *t, const char *utf8)
 
 void str_reset(void)
 {
-    free(intern_tab);
+    pal_free(intern_tab);
     intern_tab = NULL;
     intern_cap = intern_count = 0;
 }

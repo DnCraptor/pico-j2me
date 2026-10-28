@@ -1,17 +1,13 @@
 /build/
+/build-*/
+/bin/
 /rms/
-platform/nds/build/
-platform/nds/*.elf
-platform/nds/*.nds
-platform/nds/*.map
 *.o
 *.ppm
-platform/nds/build-embed/
+*.elf
+*.map
+*.lst
 
 # Third-party games used for manual testing are not part of the repo.
 tests/*.jar
 tests/*.jad
-platform/nds/arm7/build/
-*.elf
-*.map
-*.lst

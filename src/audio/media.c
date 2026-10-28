@@ -3,6 +3,7 @@
  * u-law, A-law) decoding.
  */
 #include "media.h"
+#include "../pal/pal_sys.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +27,7 @@ static bool raw_push(RawList *l, RawEvent e)
 {
     if (l->n == l->cap) {
         uint32_t  ncap = l->cap ? l->cap * 2 : 256;
-        RawEvent *nev = realloc(l->ev, sizeof(RawEvent) * ncap);
+        RawEvent *nev = pal_realloc(l->ev, sizeof(RawEvent) * ncap);
         if (!nev)
             return false;
         l->ev = nev;
@@ -152,7 +153,7 @@ static bool decode_midi(const uint8_t *data, uint32_t len, NjaClip *out)
         if (memcmp(data + pos, "MTrk", 4) == 0) {
             const uint8_t *start = data + pos + 8;
             if (!parse_track(start, start + tlen, &raw)) {
-                free(raw.ev);
+                pal_free(raw.ev);
                 return false;
             }
             found++;
@@ -163,9 +164,9 @@ static bool decode_midi(const uint8_t *data, uint32_t len, NjaClip *out)
 
     /* Ticks to milliseconds through the tempo map. SMPTE divisions give
      * frames per second and ticks per frame instead. */
-    NjaEvent *ev = malloc(sizeof(NjaEvent) * (raw.n ? raw.n : 1));
+    NjaEvent *ev = pal_malloc(sizeof(NjaEvent) * (raw.n ? raw.n : 1));
     if (!ev) {
-        free(raw.ev);
+        pal_free(raw.ev);
         return false;
     }
     uint32_t n = 0;
@@ -192,7 +193,7 @@ static bool decode_midi(const uint8_t *data, uint32_t len, NjaClip *out)
         e->pad = 0;
         last_ms = e->ms;
     }
-    free(raw.ev);
+    pal_free(raw.ev);
     out->kind = CLIP_SONG;
     out->ev = ev;
     out->n = n;
@@ -225,7 +226,7 @@ static void tone_emit(ToneState *s, uint8_t status, uint8_t d1, uint8_t d2)
 {
     if (s->n == s->cap) {
         uint32_t  ncap = s->cap ? s->cap * 2 : 64;
-        NjaEvent *nev = realloc(s->ev, sizeof(NjaEvent) * ncap);
+        NjaEvent *nev = pal_realloc(s->ev, sizeof(NjaEvent) * ncap);
         if (!nev)
             return;
         s->ev = nev;
@@ -305,7 +306,7 @@ static bool decode_tones(const uint8_t *data, uint32_t len, NjaClip *out)
 {
     if (len < 2 || (int8_t)data[0] != TONE_VERSION)
         return false;
-    ToneState *s = calloc(1, sizeof *s);
+    ToneState *s = pal_calloc(1, sizeof *s);
     if (!s)
         return false;
     s->seq = (const int8_t *)data;
@@ -325,7 +326,7 @@ static bool decode_tones(const uint8_t *data, uint32_t len, NjaClip *out)
     out->ev = s->ev;
     out->n = s->n;
     out->length_ms = (uint32_t)(s->us / 1000);
-    free(s);
+    pal_free(s);
     return out->ev != NULL;
 }
 
@@ -444,7 +445,7 @@ static bool decode_wav(const uint8_t *data, uint32_t len, NjaClip *out)
     case 0x11: max = pcm_len * 2 / channels + 2; break;
     default: return false;
     }
-    int16_t *s = malloc(sizeof(int16_t) * (max ? max : 1));
+    int16_t *s = pal_malloc(sizeof(int16_t) * (max ? max : 1));
     if (!s)
         return false;
     uint32_t n = 0;
@@ -463,7 +464,7 @@ static bool decode_wav(const uint8_t *data, uint32_t len, NjaClip *out)
     } else if (fmt == 0x11 && block) {
         n = decode_ima(pcm, pcm_len, channels, block, s, max);
     } else {
-        free(s);
+        pal_free(s);
         return false;
     }
     out->kind = CLIP_PCM;
@@ -492,7 +493,7 @@ bool media_decode(const uint8_t *data, uint32_t len, const char *type, NjaClip *
 
 void media_free(NjaClip *clip)
 {
-    free(clip->ev);
-    free(clip->pcm);
+    pal_free(clip->ev);
+    pal_free(clip->pcm);
     memset(clip, 0, sizeof *clip);
 }

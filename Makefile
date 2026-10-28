@@ -1,11 +1,11 @@
-# Nano Java build. Meant to run inside the build container (see
-# docker/Dockerfile and build.sh / build.ps1), which provides gcc, JDK 8
-# and devkitARM.
+# Nano Java desktop build (gcc and a JDK 8 javac): the class library and
+# the headless host VM used by the tests. The RP2350 firmware is built with
+# CMake (CMakeLists.txt, build_all.sh / build_all.bat).
 #
 #   make classlib   build/classlib.jar
 #   make host       build/host/nanojava (desktop build, used by tests)
 #   make test       run the test suite on the host build
-#   make nds        build/nanojava.nds
+#   make prebuilt   refresh classlib/classlib.jar (used by CMake without JDK 8)
 #   make clean
 
 BUILD       := build
@@ -22,9 +22,9 @@ HEADERS  := $(wildcard src/*/*.h platform/host/*.h)
 JAVA_SRC := $(shell find classlib/src -name '*.java')
 JAVAC    := javac -nowarn -Xlint:-options -encoding UTF-8 -source 1.3 -target 1.3
 
-.PHONY: all classlib host test nds nds-embed clean
+.PHONY: all classlib host test prebuilt clean
 
-all: classlib host nds
+all: classlib host
 
 classlib: $(BUILD)/classlib.jar
 
@@ -48,30 +48,9 @@ $(BUILD)/host/obj/%.o: %.c $(HEADERS)
 test: classlib host
 	@sh tests/run.sh
 
-nds: classlib
-	@mkdir -p $(BUILD)/nds-data
-	@cp $(BUILD)/classlib.jar $(BUILD)/nds-data/classlib.bin
-	@$(MAKE) --no-print-directory -C platform/nds/arm7
-	@$(MAKE) --no-print-directory -C platform/nds
-	@cp platform/nds/nanojava.nds $(BUILD)/nanojava.nds
-	@echo "built $(BUILD)/nanojava.nds"
-
-# A ROM that boots straight into one MIDlet, for emulator tests:
-#   make nds-embed JAR=build/midlets/demo.jar [SCREEN=176x208]
-SCREEN ?= 240x320
-nds-embed: classlib
-	@test -n "$(JAR)" || (echo "usage: make nds-embed JAR=path/to/game.jar" && false)
-	@mkdir -p $(BUILD)/nds-embed-data
-	@cp $(BUILD)/classlib.jar $(BUILD)/nds-embed-data/classlib.bin
-	@cp $(JAR) $(BUILD)/nds-embed-data/app.bin
-	@rm -rf platform/nds/build-embed
-	@$(MAKE) --no-print-directory -C platform/nds/arm7
-	@$(MAKE) --no-print-directory -C platform/nds BUILD=build-embed TARGET=nanojava-embed \
-	    DATA=../../build/nds-embed-data \
-	    EXTRA_CFLAGS="-DNJ_EMBED_W=$(word 1,$(subst x, ,$(SCREEN))) -DNJ_EMBED_H=$(word 2,$(subst x, ,$(SCREEN))) -DNJ_SHOW_FPS"
-	@cp platform/nds/nanojava-embed.nds $(BUILD)/nanojava-embed.nds
-	@echo "built $(BUILD)/nanojava-embed.nds"
+prebuilt: classlib
+	@cp $(BUILD)/classlib.jar classlib/classlib.jar
+	@echo "updated classlib/classlib.jar"
 
 clean:
 	rm -rf $(BUILD)
-	@$(MAKE) --no-print-directory -C platform/nds clean

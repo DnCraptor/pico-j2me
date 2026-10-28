@@ -3,6 +3,7 @@
  * then each scanline is unfiltered and converted to ARGB.
  */
 #include "png.h"
+#include "../pal/pal_sys.h"
 #include "inflate.h"
 
 #include <stdlib.h>
@@ -84,7 +85,7 @@ static bool parse(const uint8_t *data, uint32_t len, Png *p, bool collect)
                 p->trns_b = (uint16_t)((body[4] << 8) | body[5]);
             }
         } else if (memcmp(type, "IDAT", 4) == 0 && collect) {
-            uint8_t *n = realloc(p->idat, p->idat_len + clen + 1);
+            uint8_t *n = pal_realloc(p->idat, p->idat_len + clen + 1);
             if (!n)
                 return false;
             p->idat = n;
@@ -212,7 +213,7 @@ bool png_decode(const uint8_t *data, uint32_t len, PngRowFn fn, void *ctx)
 
     Png p;
     if (!parse(data, len, &p, true) || !p.idat) {
-        free(p.idat);
+        pal_free(p.idat);
         return false;
     }
     int bits_pp = channels(p.ctype) * p.depth;
@@ -227,11 +228,11 @@ bool png_decode(const uint8_t *data, uint32_t len, PngRowFn fn, void *ctx)
         if (pw > 0 && ph > 0)
             raw_len += (size_t)ph * (1 + ((size_t)pw * bits_pp + 7) / 8);
     }
-    uint8_t  *raw = malloc(raw_len + 1);
-    uint32_t *argb = malloc(sizeof(uint32_t) * (size_t)p.w);
+    uint8_t  *raw = pal_malloc(raw_len + 1);
+    uint32_t *argb = pal_malloc(sizeof(uint32_t) * (size_t)p.w);
     bool      ok = raw && argb &&
                    nj_zlib_inflate(raw, (uint32_t)raw_len, p.idat, p.idat_len) == (int32_t)raw_len;
-    free(p.idat);
+    pal_free(p.idat);
 
     uint8_t *cur = raw;
     for (int ps = 0; ok && ps < passes; ps++) {
@@ -253,7 +254,7 @@ bool png_decode(const uint8_t *data, uint32_t len, PngRowFn fn, void *ctx)
             cur += rowbytes + 1;
         }
     }
-    free(raw);
-    free(argb);
+    pal_free(raw);
+    pal_free(argb);
     return ok;
 }

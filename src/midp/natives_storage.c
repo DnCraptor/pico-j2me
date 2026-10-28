@@ -8,7 +8,6 @@
 #include "midp.h"
 #include "../vm/vm.h"
 
-#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -39,16 +38,14 @@ static int Storage_read(Thread *t, Slot *args, Slot *ret)
     }
     if (!key_path(args[0].ref, path, sizeof path))
         return NATIVE_OK;
-    FILE *f = fopen(path, "rb");
+    PalFile *f = pal_fopen(path, false);
     if (!f)
         return NATIVE_OK;
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    Array *a = size >= 0 ? vm_new_prim_array(t, 'B', (jint)size) : NULL;
-    if (a && fread(ARRAY_DATA(a, uint8_t), 1, (size_t)size, f) != (size_t)size)
+    uint32_t size = pal_fsize(f);
+    Array *a = vm_new_prim_array(t, 'B', (jint)size);
+    if (a && pal_fread(f, ARRAY_DATA(a, uint8_t), size) != size)
         a = NULL;
-    fclose(f);
+    pal_fclose(f);
     ret->ref = (Object *)a;
     return NATIVE_OK;
 }
@@ -65,18 +62,18 @@ static int Storage_write(Thread *t, Slot *args, Slot *ret)
         return NATIVE_OK;
     /* Write a temporary file first so a crash never leaves half a store. */
     snprintf(tmp, sizeof tmp, "%s.tmp", path);
-    FILE *f = fopen(tmp, "wb");
+    PalFile *f = pal_fopen(tmp, true);
     if (!f)
         return NATIVE_OK;
-    size_t n = (size_t)ARRAY_LEN(data);
-    bool   ok = fwrite(ARRAY_DATA(data, uint8_t), 1, n, f) == n;
-    ok = fclose(f) == 0 && ok;
+    uint32_t n = (uint32_t)ARRAY_LEN(data);
+    bool     ok = pal_fwrite(f, ARRAY_DATA(data, uint8_t), n) == n;
+    ok = pal_fclose(f) && ok;
     if (ok) {
-        remove(path);
-        ok = rename(tmp, path) == 0;
+        pal_remove(path);
+        ok = pal_rename(tmp, path);
     }
     if (!ok)
-        remove(tmp);
+        pal_remove(tmp);
     ret->i = ok;
     return NATIVE_OK;
 }
@@ -88,7 +85,7 @@ static int Storage_delete(Thread *t, Slot *args, Slot *ret)
         NPE(t);
         return NATIVE_OK;
     }
-    ret->i = key_path(args[0].ref, path, sizeof path) && remove(path) == 0;
+    ret->i = key_path(args[0].ref, path, sizeof path) && pal_remove(path);
     return NATIVE_OK;
 }
 
@@ -121,25 +118,30 @@ static int Storage_list(Thread *t, Slot *args, Slot *ret)
     char **names = NULL;
     int    n = 0, cap = 0;
     const char *dir = pal_data_dir();
-    DIR   *d = dir ? opendir(dir) : NULL;
+    PalDir *d = dir ? pal_opendir(dir) : NULL;
     if (d) {
-        struct dirent *e;
-        while ((e = readdir(d))) {
-            size_t len = strlen(e->d_name), ext = strlen(EXT);
-            if (len <= ext || strcmp(e->d_name + len - ext, EXT) != 0)
+        const char *e;
+        while ((e = pal_readdir(d))) {
+            size_t len = strlen(e), ext = strlen(EXT);
+            if (len <= ext || strcmp(e + len - ext, EXT) != 0)
                 continue;
-            char *name = malloc((len - ext) / 2 + 1);
-            if (!decode_name(e->d_name, len - ext, name)) {
-                free(name);
+            char *name = pal_malloc((len - ext) / 2 + 1);
+            if (!name || !decode_name(e, len - ext, name)) {
+                pal_free(name);
                 continue;
             }
             if (n == cap) {
                 cap = cap ? cap * 2 : 16;
-                names = realloc(names, sizeof(char *) * (size_t)cap);
+                char **grown = pal_realloc(names, sizeof(char *) * (size_t)cap);
+                if (!grown) {
+                    pal_free(name);
+                    break;
+                }
+                names = grown;
             }
             names[n++] = name;
         }
-        closedir(d);
+        pal_closedir(d);
     }
     Array *a = vm_new_array(t, class_array_of(vm.c_String), n);
     for (int i = 0; i < n && a; i++) {
@@ -150,8 +152,8 @@ static int Storage_list(Thread *t, Slot *args, Slot *ret)
             ARRAY_DATA(a, Object *)[i] = s;
     }
     for (int i = 0; i < n; i++)
-        free(names[i]);
-    free(names);
+        pal_free(names[i]);
+    pal_free(names);
     ret->ref = (Object *)a;
     return NATIVE_OK;
 }

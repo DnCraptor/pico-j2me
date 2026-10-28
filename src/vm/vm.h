@@ -18,6 +18,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "../pal/pal_sys.h"
+
 typedef int8_t   jbyte;
 typedef uint8_t  jboolean;
 typedef uint16_t jchar;

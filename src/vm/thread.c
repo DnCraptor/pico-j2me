@@ -44,9 +44,9 @@ Thread *thread_create(Object *jthread, Method *entry, Slot *args, int nargs)
 
 void thread_free(Thread *t)
 {
-    free(t->stack);
-    free(t->frames);
-    free(t);
+    pal_free(t->stack);
+    pal_free(t->frames);
+    pal_free(t);
 }
 
 Thread *thread_find(Object *jthread)
@@ -75,7 +75,7 @@ static Monitor *monitor_of(Object *o)
 
 void monitor_free(Monitor *m)
 {
-    free(m);
+    pal_free(m);
 }
 
 static void wake_blocked(Monitor *m)

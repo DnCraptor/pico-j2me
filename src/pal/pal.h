@@ -11,6 +11,7 @@
 #include <stdbool.h>
 
 #include "../audio/synth.h"
+#include "pal_sys.h"
 
 /* Time */
 int64_t pal_time_ms(void);           /* monotonic milliseconds */

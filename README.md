@@ -1,222 +1,166 @@
-To be updated.
+# pico-j2me
 
-Original document:
+**J2ME games and applications (MIDlets, CLDC 1.1 / MIDP 2.0) on RP2350-based
+MURMULATOR systems and compatible boards with QSPI PSRAM.**
 
-# Nano Java
+`pico-j2me` is a port of [Nano Java](https://github.com/mostazaniikkkk/Nano-Java)
+(version 2.0, the from-scratch rewrite) from the Nintendo DS to the RP2350:
+a small Java virtual machine in portable C, a class library written mostly
+in Java and a platform layer - here for the Murmulator boards, with the
+drivers of [pico-gameboy](https://github.com/DnCraptor/pico-gameboy).
+No third-party Java code is used: no KVM, no Sun class libraries.
 
-[![Build](https://github.com/mostazaniikkkk/Nano-Java/actions/workflows/build.yml/badge.svg)](https://github.com/mostazaniikkkk/Nano-Java/actions/workflows/build.yml)
+Current version: **0.1.0** (first port, not yet verified on hardware).
 
-Nano Java runs J2ME games and applications (MIDlets, CLDC 1.1 / MIDP 2.0)
-on the Nintendo DS. It is a from-scratch implementation: a small Java
-virtual machine in portable C, a class library written mostly in Java, and
-a platform layer for the DS (libnds / calico). It needs no third-party
-Java code: no KVM, no Sun class libraries.
+## Supported boards
 
-> Version 2.0 is a complete rewrite. The previous, KVM-based version is
-> kept in the [`1.0` branch](https://github.com/mostazaniikkkk/Nano-Java/tree/1.0).
+| Board | Firmware prefix | Video | Sound |
+|---|---|---|---|
+| MURMULATOR 1.x | `m1p2` | VGA, HDMI | PWM, I2S |
+| MURMULATOR 2.0 | `m2p2` | VGA, HDMI | PWM, I2S |
+| Olimex RP2040-PICO-PC with a Pico 2 | `PCp2` | HDMI (DVI connector) | PWM (3.5 mm jack) |
+| Waveshare RP2350-PiZero | `z0p2` | mini-HDMI | I2S (an external PCM5102A module on GP10..12) |
 
-## Screenshots
+Firmware files are named `<prefix>-j2me-<video>-<sound>-<version>.uf2`.
 
-<table>
-  <tr>
-    <td align="center"><img src="docs/screenshots/ds-launcher.png" width="256" alt="Game list"><br>Game list</td>
-    <td align="center"><img src="docs/screenshots/ds-title.png" width="256" alt="Title screen and phone keypad"><br>Phone keypad on the touch screen</td>
-    <td align="center"><img src="docs/screenshots/ds-gameplay.png" width="256" alt="Gameplay"><br>In game</td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/ds-menu.png" width="256" alt="Emulator menu"><br>Emulator menu</td>
-    <td align="center"><img src="docs/screenshots/ds-controls.png" width="256" alt="Button mapping"><br>Per-game controls</td>
-    <td align="center">
-      <img src="docs/screenshots/host-graphics.png" width="120" alt="Graphics test">
-      <img src="docs/screenshots/host-ui.png" width="120" alt="High-level UI test"><br>
-      Graphics and high-level UI tests (desktop build)
-    </td>
-  </tr>
-</table>
-
-DS screenshots taken in melonDS. *Sonic Unleashed* is © SEGA / Gameloft and
-is shown only to illustrate compatibility; no games are included.
-
-## Download
-
-Get `nanojava.nds` from the
-[releases page](https://github.com/mostazaniikkkk/Nano-Java/releases).
-Development builds of every commit are available as artifacts of the
-[Build workflow](https://github.com/mostazaniikkkk/Nano-Java/actions/workflows/build.yml)
-(open a run and download `nanojava`).
+**QSPI PSRAM is needed** for real games: the Java heap (half of the PSRAM,
+at most 4 MB), the game's jar, the class metadata and decoded sounds live
+there.  Without PSRAM the firmware still starts, with a 96 KB Java heap in
+SRAM - enough for the smallest MIDlets only.
 
 ## Features
 
-- Java VM: full bytecode set (including `jsr`/`ret` from old compilers),
-  green threads with monitors, `wait`/`notify`, `sleep` and `interrupt`,
-  exceptions with stack traces, lazy class initialization, weak references,
-  a mark & sweep garbage collector.
-- CLDC 1.1: `java.lang`, `java.util` (including `Timer`, `Calendar`),
-  `java.io`, floating point.
-- MIDP 2.0: `Canvas`, `GameCanvas`, `Graphics` (every primitive, the 8
-  sprite transforms, alpha blending, `drawRGB`), PNG images, fonts,
-  commands and soft keys, the high-level UI (`Form`, `List`, `TextBox`,
-  `Alert` and the items), `javax.microedition.lcdui.game`
-  (`Sprite`, `TiledLayer`, `LayerManager`), record stores (`rms`),
-  `javax.microedition.media` with sound: MIDI music, WAV (PCM, IMA ADPCM,
-  u-law, A-law), tone sequences and `Manager.playTone`, played by a
-  General MIDI synthesizer that runs on the DS's second CPU (the ARM7),
-  `javax.microedition.io` (no networking).
-- Nokia UI API (`FullCanvas`, `DirectGraphics`, `DirectUtils`,
-  `DeviceControl`, `Sound`), used by many games.
-- JAR and JAD files; app properties from the manifest and the JAD.
+- Java VM: full bytecode set, green threads with monitors, `wait`/`notify`,
+  exceptions with stack traces, weak references, mark & sweep GC
+- CLDC 1.1: `java.lang`, `java.util` (`Timer`, `Calendar`...), `java.io`,
+  floating point
+- MIDP 2.0: `Canvas`, `GameCanvas`, `Graphics` (all primitives, sprite
+  transforms, alpha, `drawRGB`), PNG images, fonts, commands, the high-level
+  UI (`Form`, `List`, `TextBox`, `Alert`...), `lcdui.game` (`Sprite`,
+  `TiledLayer`, `LayerManager`), record stores (`rms`), MMAPI sound: MIDI,
+  WAV (PCM, IMA ADPCM, u-law, A-law), tone sequences
+- Nokia UI API (`FullCanvas`, `DirectGraphics`, `DeviceControl`, `Sound`)
+- JAR and JAD files
+- SD-card game browser with a per-game phone screen size
+- PS/2 and USB keyboards, NES/SNES gamepads
 
-## Using it on a DS
+## Using it
 
-1. Copy `nanojava.nds` to the SD card and your games (`.jar`, optionally
-   with their `.jad`) to `/nanojava/` (also searched: `/java`, `/games`
-   and the root).
-2. Start `nanojava.nds` and pick a game from the list on the touch screen
-   (tap it, or use the D-pad and A). The top screen shows the selected
-   game's icon, name, vendor, version and description from its manifest.
-   **L/R** changes the phone screen size for that game (240x320 by default;
-   saved in `<game>.ini` next to the jar). A jar with several MIDlets asks
-   which one to run. A jar with a `.jad` next to it is listed once, using
-   the `.jad`'s properties.
+1. Flash the UF2 for your board.
+2. Put the games (`.jar`, optionally with their `.jad`) on the SD card in
+   `/j2me/` (sub-folders are fine).
+3. Pick a game in the list.  **Left / Right** changes the phone screen
+   size of the selected game (240x320 by default; 128x128, 128x160,
+   176x208, 176x220, 208x208, 240x240 and 320x240 are offered).
 
-The game runs on the top screen (scaled down by the DS hardware when the
-phone screen is taller than 192 pixels). The touch screen shows a phone
-keypad: the soft keys (labelled with the game's current commands), call
-and end, a D-pad with OK, and the number keys.
+The picture is scaled to the 640x480 screen with square pixels where the
+size allows it (176x208 and smaller: 2x and more); 240x320 uses all 480
+lines and two screen pixels per column.
 
-The tab on the left edge of the touch screen (or SELECT) opens the
-emulator menu, which pauses the game:
+Controls:
 
-- **Restart game** / **Change game** (back to the list, no reboot needed)
-- **Controls**: map each DS button to any phone key, per game
-- **Screen**: the phone screen size (the game restarts to apply it)
-- **Layout**:
-  - *Fit*: the game on the top screen, the phone keypad on the touch screen.
-  - *Span*: the game shown 1:1 across both screens, with a compact keypad
-    below it.
-  - *Touch*: the game on the touch screen, for games played by tapping;
-    the top screen shows the button map, the soft key commands and the FPS.
+| Keyboard | Gamepad | Phone |
+|---|---|---|
+| Arrows | D-pad | Up / Down / Left / Right |
+| Enter, Space | A | Fire |
+| F1 | Start | Left soft key |
+| F2, Esc | B | Right soft key |
+| 0..9 (main block or keypad) | X = 5, Y = 0 | 0..9 |
+| Shift+8, keypad `*` | L | `*` |
+| Shift+3, keypad `/` | R | `#` |
+| Backspace, Delete | | Clear |
+| F12 | Select | Emulator menu |
+| Ctrl+Alt+Del | | Reboot |
 
-  In *Span* and *Touch*, touching the game sends pointer events to it.
-- **Volume** and **Show FPS** (frames per second and CPU load, shown under
-  the menu tab)
+The emulator menu pauses the game: resume, restart, change the screen size
+(restarts the game) or the volume, go back to the game list, reboot.
 
-**START+SELECT** always opens the menu, whatever the button map says.
+Files on the SD card:
 
-Default controls:
-
-| DS | Phone |
-|---|---|
-| D-pad | Arrow keys |
-| A | Fire |
-| B | Right soft key |
-| X | 5 |
-| Y | 0 |
-| L | * |
-| R | # |
-| START | Left soft key |
-| SELECT | Emulator menu |
-
-Settings are saved per game in `<game>.ini` next to the jar, and saved
-games (record stores) in `/nanojava/rms/`.
+- `/j2me/` - the games
+- `/.config/pico-j2me/<game>.ini` - per-game settings (screen size, volume)
+- `/.config/pico-j2me/rms/<game>/` - saved games (record stores)
 
 ## Building
 
-Everything builds inside Docker; you only need Docker installed.
+The firmware is built with the Raspberry Pi Pico SDK 2.2 (CMake + Ninja,
+as from the Pico VS Code extension):
 
 ```sh
-./build.sh            # Linux / macOS: class library, host build and DS ROM
-./build.sh test       # run the test suite
-./build.sh nds        # just build/nanojava.nds
-./build.sh shell      # a shell in the build container
+cmake -B build -G Ninja -DPICO_BOARD=murmulator2 -DHDMI=ON -DI2S=ON
+cmake --build build
 ```
 
-On Windows use `.\build.ps1` with the same arguments. The first run builds
-the `nanojava-build` image (devkitARM, gcc, JDK 8) from `docker/Dockerfile`.
+Options: `PICO_BOARD` (`murmulator`, `murmulator2`, `olimex-pico-pc`,
+`waveshare_rp2350_pizero`), `VGA` / `HDMI`, `I2S` (`OFF` = PWM),
+`I2S_CS4334`, `USB_HID` (USB keyboard, on by default), `CPU_MHZ` (378 by
+default, 252 on the PiZero).
 
-Outputs:
+`build_all.sh` / `build_all.bat` build every variant; the UF2 files land
+in `bin/Release/`.
 
-- `build/nanojava.nds` - the DS ROM
-- `build/classlib.jar` - the class library
-- `build/host/nanojava` - a headless desktop build (Linux), used for tests
+The class library is compiled with a **JDK 8** `javac` (newer ones cannot
+target the CLDC class file version).  CMake uses the JDK 8 found through
+`JAVA8_HOME` (or `JAVA_HOME`/`PATH`); without one it embeds the prebuilt
+`classlib/classlib.jar`.  After changing `classlib/src`, refresh it with
+`make prebuilt`.
 
-GitHub Actions runs the same build and the tests on every push
-(`.github/workflows/build.yml`). Pushing a tag named `v*` (for example
-`v2.0.0`) publishes a release with `nanojava.nds` attached; tags with a
-hyphen (`v2.0.0-beta1`) become pre-releases.
+### The desktop build and the tests
 
-## The desktop build
-
-The host build runs the same VM and class library without a window, which
-makes it convenient for testing and debugging:
+The headless desktop build (Linux, gcc + JDK 8) runs the same VM and class
+library and is used by the tests:
 
 ```sh
+make test                                            # the test suite
 build/host/nanojava game.jar                         # run a MIDlet
 build/host/nanojava --audio-out sound.wav game.jar   # and record its sound
 build/host/nanojava --run-ms 5000 --screenshot shot.ppm \
     --keys 1000:-5,1100:-5:up game.jar               # scripted input
-build/host/nanojava -cp classes -main MyTest         # a CLDC program
 ```
 
 `--keys` takes `time_ms:keycode[:up]` entries using MIDP key codes (`-1`
-to `-4` arrows, `-5` fire, `-6`/`-7` soft keys, `48`-`57` digits). Run it
-with `--help` for all options.
-
-## Tests
-
-`./build.sh test` compiles the programs in `tests/java` and runs them on
-the host build, comparing their output with `.expected` files generated
-by running the same programs on a standard JVM (`tests/gen_expected.sh`).
-Test MIDlets live in `tests/midlets/` (`tests/midlets/build.sh`).
-
-The DS build can be checked in melonDS without hardware. The
-`nanojava-emu` image (`docker/Dockerfile.emu`) runs melonDS on a virtual
-display; `tools/ds-smoke.sh` presses buttons, taps the touch screen and
-saves screenshots, with `build/sdcard` as the SD card:
-
-```sh
-docker build -t nanojava-emu -f docker/Dockerfile.emu docker
-docker run --rm -v "$PWD":/src -w /src nanojava-emu \
-    sh tools/ds-smoke.sh build/nanojava.nds 6:x 20:tap,8,20 3
-```
-
-`make nds-embed JAR=game.jar SCREEN=176x208` builds a ROM that starts one
-MIDlet directly (no SD card needed) and always shows the FPS counter.
+to `-4` arrows, `-5` fire, `-6`/`-7` soft keys, `48`-`57` digits).
 
 ## Project layout
 
 ```
-src/vm        the virtual machine
-src/util      ZIP, inflate and PNG decoding
-src/midp      MIDP natives, rasterizer, fonts, input queue, storage
-src/pal       platform interface
-platform/     host and nds platform layers
-classlib/src  the Java class library
-tests/        tests and test MIDlets
-tools/        font generator, emulator smoke test
-docker/       build images
-docs/         architecture notes
+src/vm            the virtual machine
+src/util          ZIP, inflate and PNG decoding
+src/midp          MIDP natives, rasterizer, fonts, input queue, storage
+src/audio         MIDI / tone / WAV decoding, the synthesizer
+src/pal           platform interface (pal.h, pal_sys.h)
+platform/rp2350   the RP2350 platform layer (start-up, launcher, video,
+                  input, sound, PSRAM heap, FatFs files)
+platform/host     the desktop platform layer (tests)
+drivers/          Murmulator drivers (VGA, HDMI, PS/2, NES pad, I2S/PWM,
+                  SD card, FatFs) from pico-gameboy
+boards/           board pin headers
+external/tlsf     the TLSF allocator (native heap in PSRAM)
+classlib/src      the Java class library (classlib.jar: prebuilt copy)
+tests/            tests and test MIDlets
+tools/            font and waveform generators
+docs/             architecture notes
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it works.
 
 ## Status and limitations
 
+- First port: built for every board, not yet verified on hardware.
 - The synthesizer uses simple waveforms (one per family of General MIDI
-  instruments) rather than sampled instruments; MP3 and AMR are not
-  supported (those players run silently but report their events).
-- No networking (`Connector.open` fails as on a phone without coverage).
-- Fonts are a single family (DejaVu Sans) in three sizes; italic is drawn
-  upright.
-- Performance depends on the game; the interpreter is a straightforward
-  switch-based one.
+  instruments); MP3 and AMR are not supported.
+- No networking; no touch screen / pointer input.
+- No real-time clock: the wall clock starts at the build time.
+- The interpreter is a straightforward switch-based one; the hot parts of
+  the VM run from SRAM, the Java heap is in PSRAM behind the XIP cache.
 
 ## License
 
-Nano Java is dedicated to the public domain under
-[CC0 1.0 Universal](LICENSE): you can copy, modify and distribute it, even
-commercially, without asking permission.
+Nano Java (`src/`, `classlib/`, `platform/host`, `tests/`, `tools/`) is
+dedicated to the public domain under [CC0 1.0 Universal](LICENSE), except
+the built-in font (`src/midp/font_data.c`, DejaVu Sans, see
+[docs/FONT_LICENSE](docs/FONT_LICENSE)).
 
-The only exception is the built-in font (`src/midp/font_data.c`), which is
-generated from DejaVu Sans and keeps its own permissive license, see
-[docs/FONT_LICENSE](docs/FONT_LICENSE).
+The drivers in `drivers/` and the files taken from pico-gameboy keep their
+own licenses (the PS/2 keyboard driver is GPL-2.0-or-later, which applies
+to the firmware as a whole); TLSF is BSD-licensed (`external/tlsf`).
