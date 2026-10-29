@@ -12,3 +12,4 @@
 tests/*.jar
 tests/*.jad
 .vscode/
+__pycache__/

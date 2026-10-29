@@ -68,7 +68,8 @@ SECTIONS
         *(EXCLUDE_FILE(*libgcc.a: *libc.a:*lib_a-mem*.o *libm.a:
                        *interp.c.o* *heap.c.o* *thread.c.o* *class.c.o* *string.c.o*
                        *gfx.c.o* *natives_lcdui.c.o* *natives_lang.c.o* *tlsf.c.o*
-                       *video.c.o* *video_tft.c.o* *audio_rp2350.c.o* *synth.c.o*) .text*)
+                       *video.c.o* *video_tft.c.o* *audio_rp2350.c.o* *synth.c.o*
+                       *gmsynth.c.o*) .text*)
         *(.fini)
         /* Pull all c'tors into .text */
         *crtbegin.o(.ctors)
@@ -130,7 +131,8 @@ SECTIONS
         "ERROR: Pico second stage bootloader must be no more than 256 bytes in size")
 
     .rodata : {
-        *(EXCLUDE_FILE(*libgcc.a: *libc.a:*lib_a-mem*.o *libm.a:) .rodata*)
+        /* pico-j2me: the wavetable tables (gmsynth.c) are read per sample */
+        *(EXCLUDE_FILE(*libgcc.a: *libc.a:*lib_a-mem*.o *libm.a: *gmsynth.c.o*) .rodata*)
         *(.srodata*)
         . = ALIGN(4);
         *(SORT_BY_ALIGNMENT(SORT_BY_NAME(.flashdata*)))

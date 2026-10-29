@@ -18,6 +18,7 @@
 /* Memory                                                                   */
 
 static tlsf_t pool;          /* NULL: no PSRAM, use the SRAM malloc */
+static size_t reserved;      /* bytes kept at the top of the PSRAM (gm_bank.bin) */
 
 void sys_mem_init(void)
 {
@@ -32,7 +33,7 @@ void sys_mem_reset(void)
     }
     /* Cached window: the XIP cache keeps the hot data (class metadata,
      * thread stacks, the Java heap) close to the core. */
-    pool = tlsf_create_with_pool((void *)PSRAM_BASE, psram_size());
+    pool = tlsf_create_with_pool((void *)PSRAM_BASE, psram_size() - reserved);
 }
 
 bool sys_psram(void)
@@ -42,7 +43,26 @@ bool sys_psram(void)
 
 size_t sys_psram_size(void)
 {
-    return pool ? psram_size() : 0;
+    return pool ? psram_size() - reserved : 0;
+}
+
+void *sys_mem_reserve_top(size_t n)
+{
+    if (!pool)
+        return NULL;
+    n = (n + 4095) & ~(size_t)4095;
+    if (n > psram_size() - reserved)
+        return NULL;
+    reserved += n;
+    sys_mem_reset();
+    return (void *)(PSRAM_BASE + psram_size() - reserved);
+}
+
+void sys_mem_unreserve_top(size_t n)
+{
+    n = (n + 4095) & ~(size_t)4095;
+    reserved = n > reserved ? 0 : reserved - n;
+    sys_mem_reset();
 }
 
 typedef struct {

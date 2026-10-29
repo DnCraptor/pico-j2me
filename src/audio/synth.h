@@ -54,4 +54,8 @@ void synth_tick(uint32_t elapsed_ms);
 
 bool synth_playing(int slot);
 
+/* Each slot's volume (0-100) with the master volume applied, for mixing
+ * the wavetable engine's output (gmsynth.h). */
+void synth_gains(int gain[SYNTH_SLOTS]);
+
 #endif

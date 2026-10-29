@@ -76,6 +76,28 @@ the picture the other way).  The game list and the menus are always in
 landscape.  TFT firmware: `-TFT-ST7789`, `-TFT-ST7789V` (inverted colours)
 and `-TFT-ILI9341`.
 
+### General MIDI wavetable sound
+
+MIDI music (and tone sequences) normally play on a small built-in
+synthesizer: one simple waveform per family of instruments.  With a
+**General MIDI sound bank** on the SD card they play on real sampled
+instruments instead, through xrip's fixed-point wavetable engine
+([embeded-midi-synth](https://github.com/xrip/embeded-midi-synth), as in
+pico-speccy).  WAV sounds are not affected.
+
+- The bank is a `gm_bank.bin` (GMWB v5, packed for 31250 Hz) - the same
+  file pico-speccy uses.  Pack it on a PC from a GM.DLS file
+  (`python3 tools/dls_pack.py gm.dls gm_bank.bin`) or a GUS / freepats patch
+  set (`python3 tools/gus_pack.py timidity.cfg gm_bank.bin`).  Microsoft's
+  `gm.dls` and banks made from it are not redistributable: keep them on your
+  own card.
+- Put it in `/.config/pico-j2me/`, in the root of the card or in
+  `/.config/pico-speccy/`.  It is loaded into PSRAM at boot (the game list
+  then shows `[MIDI: GM bank]`); it needs QSPI PSRAM and takes its size from
+  what the games get (at least 3 MB is kept for them).
+- Without a bank, or when it does not fit, MIDI plays on the built-in
+  synthesizer as before.
+
 Controls:
 
 | Keyboard | Gamepad | Phone |
@@ -159,6 +181,7 @@ drivers/          Murmulator drivers (VGA, HDMI, PS/2, NES pad, I2S/PWM,
                   SD card, FatFs) from pico-gameboy
 boards/           board pin headers
 external/tlsf     the TLSF allocator (native heap in PSRAM)
+external/embeded-midi-synth  xrip's GM wavetable engine (see its NOTICE)
 classlib/src      the Java class library (classlib.jar: prebuilt copy)
 tests/            tests and test MIDlets
 tools/            font and waveform generators
@@ -169,9 +192,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it works.
 
 ## Status and limitations
 
-- First port: built for every board, not yet verified on hardware.
-- The synthesizer uses simple waveforms (one per family of General MIDI
-  instruments); MP3 and AMR are not supported.
+- Without a General MIDI bank the synthesizer uses simple waveforms (one
+  per family of instruments); MP3 and AMR are not supported.
 - No networking; no touch screen / pointer input.
 - No real-time clock: the wall clock starts at the build time.
 - The interpreter is a straightforward switch-based one; the hot parts of

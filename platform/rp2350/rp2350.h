@@ -37,6 +37,10 @@ size_t sys_psram_size(void);
  * by the previous one is dropped at once). */
 void   sys_mem_reset(void);
 size_t sys_mem_free(void);                  /* the largest free block */
+/* Takes n bytes from the top of the PSRAM for good (the native heap of the
+ * games shrinks by that much); NULL if there is no room.  Boot time only. */
+void  *sys_mem_reserve_top(size_t n);
+void   sys_mem_unreserve_top(size_t n);
 bool   sys_mkdirs(const char *dir);         /* creates every missing level */
 
 /* ---- video (video.c) ---- */
@@ -105,6 +109,10 @@ void audio_core1_poll(void);
 void audio_pause(bool paused);              /* silence while a menu is open */
 void audio_reset(void);                     /* stop everything (VM shutdown) */
 void audio_master(int volume);              /* 0-100 */
+/* General MIDI wavetable bank (gmbank.c): loaded from the SD card at boot */
+void audio_gm_load(void);
+bool audio_gm_ready(void);
+bool audio_gm_bind(const void *blob, uint32_t size, void *state, const char **why);
 
 /* ---- per-game settings (settings.c) ---- */
 

@@ -5,8 +5,13 @@
  * waveform and an attack/decay/sustain/release envelope. Drums (MIDI
  * channel 10) are noise bursts or short sine thumps. Everything uses
  * integer arithmetic: on the DS this runs on the ARM7, which has no FPU.
+ *
+ * With a General MIDI sound bank bound (gmsynth.h) the songs' MIDI messages
+ * go to the wavetable engine instead of these voices; the sequencing (and
+ * the PCM clips) stay here.
  */
 #include "synth.h"
+#include "gmsynth.h"
 
 #include <string.h>
 
@@ -272,6 +277,7 @@ static void note_off(int slot, int midi_ch, int note)
 
 static void slot_voices_off(int slot, bool immediately)
 {
+    gmsynth_notes_off(slot, immediately);
     for (int i = 0; i < SYNTH_CHANNELS; i++) {
         if (voices[i].slot != slot)
             continue;
@@ -337,6 +343,10 @@ static void control_change(int slot, int c, int cc, int value)
 
 static void dispatch(int slot, const NjaEvent *e)
 {
+    if (gmsynth_ready()) {
+        gmsynth_message(slot, e->status, e->d1, e->d2);
+        return;
+    }
     int c = e->status & 15;
     switch (e->status & 0xF0) {
     case 0x90:
@@ -369,6 +379,7 @@ void synth_song(int slot, const NjaEvent *ev, uint32_t n, uint32_t start_ms, int
     synth_stop(slot);
     Slot *s = &slots[slot];
     reset_channels(s);
+    gmsynth_reset(slot);
     s->pcm = false;
     s->ev = ev;
     s->n = n;
@@ -433,6 +444,12 @@ void synth_master(int volume)
     for (int s = 0; s < SYNTH_SLOTS; s++)
         if (slots[s].playing)
             synth_volume(s, slots[s].volume);
+}
+
+void synth_gains(int gain[SYNTH_SLOTS])
+{
+    for (int s = 0; s < SYNTH_SLOTS; s++)
+        gain[s] = slots[s].volume * master / 100;
 }
 
 bool synth_playing(int slot)

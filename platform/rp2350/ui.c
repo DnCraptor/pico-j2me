@@ -276,7 +276,8 @@ static void draw_launcher(int sel, int top, int list_rows)
 {
     int  cols = video_text_cols(), rows = video_text_rows();
     char line[128];
-    snprintf(line, sizeof line, "pico-j2me %s - J2ME for RP2350", NJ_VERSION);
+    snprintf(line, sizeof line, "pico-j2me %s - J2ME for RP2350%s", NJ_VERSION,
+             audio_gm_ready() ? "  [MIDI: GM bank]" : "");
     bar(0, line, C_WHITE, C_BLUE);
     snprintf(line, sizeof line, "%.*s", cols - 2, cur_dir);
     bar(1, line, C_LCYAN, C_BLACK);

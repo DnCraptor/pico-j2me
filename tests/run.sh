@@ -46,5 +46,23 @@ for exp in tests/midlets/*/expected.txt; do
     fi
 done
 
+# The audio MIDlet again through the General MIDI wavetable engine, with a
+# synthetic bank (tools/make_test_bank.py; needs python3).
+if command -v python3 >/dev/null 2>&1 && [ -f tests/midlets/audio/expected.txt ]; then
+    python3 tools/make_test_bank.py "$OUT/test_bank.bin"
+    timeout 60 build/host/nanojava --classlib build/classlib.jar --run-ms 4000 \
+        --gm-bank "$OUT/test_bank.bin" --audio-out "$OUT/audio-gm.wav" \
+        build/midlets/audio.jar > "$OUT/midlet-audio-gm.out" 2>&1
+    code=$?
+    if [ $code -eq 0 ] && cmp -s tests/midlets/audio/expected.txt "$OUT/midlet-audio-gm.out"; then
+        pass=$((pass + 1))
+        echo "PASS midlet audio (GM bank)"
+    else
+        fail=$((fail + 1))
+        echo "FAIL midlet audio (GM bank) (exit $code)"
+        diff tests/midlets/audio/expected.txt "$OUT/midlet-audio-gm.out" | head -20
+    fi
+fi
+
 echo "$pass passed, $fail failed"
 [ $fail -eq 0 ]

@@ -30,5 +30,6 @@ bool host_write_screenshot(const char *path);
 bool host_audio_open(const char *path);   /* record the mix to a WAV file */
 void host_audio_update(void);             /* advance the synthesizer */
 void host_audio_close(void);
+bool host_audio_gm_bank(const char *path);  /* General MIDI wavetable bank */
 
 #endif

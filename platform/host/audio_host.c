@@ -1,16 +1,18 @@
 /*
  * audio_host.c - audio for the host build: the synthesizer drives a
- * software model of the DS's 16 sound channels, mixed at 32768 Hz. With
+ * software model of the DS's 16 sound channels, mixed at 31250 Hz (the
+ * gm_bank.bin rate; --gm-bank adds the GM wavetable engine).  With
  * --audio-out the mix is written to a WAV file (useful to check the
- * synthesizer without a DS).
+ * synthesizer without hardware).
  */
 #include "host.h"
+#include "../../src/audio/gmsynth.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define MIX_RATE 32768
+#define MIX_RATE GMSYNTH_RATE   /* the rate gm_bank.bin is packed for */
 #define TICK_MS  4
 
 enum { CH_OFF, CH_WAVE, CH_NOISE, CH_PCM };
@@ -135,6 +137,11 @@ static int next_sample(Channel *c)
 
 static void mix(uint32_t frames)
 {
+    static int32_t gm[2 * MIX_RATE * TICK_MS / 1000];
+    int gain[SYNTH_SLOTS];
+    memset(gm, 0, sizeof(int32_t) * 2 * frames);
+    synth_gains(gain);
+    gmsynth_mix(gm, (int)frames, gain);
     for (uint32_t f = 0; f < frames; f++) {
         int32_t l = 0, r = 0;
         for (int i = 0; i < SYNTH_CHANNELS; i++) {
@@ -146,8 +153,8 @@ static void mix(uint32_t frames)
             r += s * c->pan / 127;
         }
         /* Same headroom as the DS mixer: 16 full channels would clip. */
-        l /= 4;
-        r /= 4;
+        l = l / 4 + gm[2 * f];
+        r = r / 4 + gm[2 * f + 1];
         int16_t frame[2] = {
             (int16_t)(l > 32767 ? 32767 : l < -32768 ? -32768 : l),
             (int16_t)(r > 32767 ? 32767 : r < -32768 ? -32768 : r),
@@ -201,6 +208,29 @@ static void write_header(void)
     memcpy(h + 40, &data, 4);
     fseek(out, 0, SEEK_SET);
     fwrite(h, 1, sizeof h, out);
+}
+
+bool host_audio_gm_bank(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return false;
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *blob = size > 0 ? malloc((size_t)size) : NULL;
+    void    *state = malloc(gmsynth_state_bytes());
+    bool     ok = blob && state && fread(blob, 1, (size_t)size, f) == (size_t)size;
+    fclose(f);
+    const char *why = "cannot read it";
+    if (ok)
+        ok = gmsynth_bind(blob, (uint32_t)size, state, &why);
+    if (!ok) {
+        fprintf(stderr, "nanojava: %s: %s\n", path, why);
+        free(blob);
+        free(state);
+    }
+    return ok;
 }
 
 bool host_audio_open(const char *path)

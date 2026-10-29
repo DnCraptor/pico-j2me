@@ -6,6 +6,9 @@
  *
  * The pal_audio_* calls come from core 0 (the VM); the mixer runs on core
  * 1.  A spin lock keeps the synthesizer state consistent between them.
+ *
+ * With a General MIDI bank (gm_bank.bin, see audio_gm_load) the songs are
+ * rendered by the wavetable engine (src/audio/gmsynth.c) and added here.
  */
 #include "rp2350.h"
 
@@ -16,10 +19,11 @@
 #include "hardware/dma.h"
 
 #include "audio.h"
+#include "../../src/audio/gmsynth.h"
 
-#define MIX_RATE    32768
+#define MIX_RATE    GMSYNTH_RATE                  /* 31250: the gm_bank.bin rate */
 #define TICK_MS     4
-#define TICK_FRAMES (MIX_RATE * TICK_MS / 1000)   /* 131 */
+#define TICK_FRAMES (MIX_RATE * TICK_MS / 1000)   /* 125 */
 #define BLOCK       (TICK_FRAMES * 2)             /* frames per DMA block (8 ms) */
 
 enum { CH_OFF, CH_WAVE, CH_NOISE, CH_PCM };
@@ -120,6 +124,7 @@ static const SynthHw rp_hw = {
  * Waves keep a 16.16 position (a wave is 32 samples); PCM and noise keep
  * an integer sample index in pos and the 16-bit fraction in frac. */
 static int32_t acc[TICK_FRAMES * 2];
+static int32_t gm_acc[TICK_FRAMES * 2];
 
 static void __not_in_flash_func(mix)(int16_t *out, int n)
 {
@@ -186,9 +191,17 @@ static void __not_in_flash_func(mix)(int16_t *out, int n)
         }
     }
     int m = master;
+    if (gmsynth_ready()) {
+        int gain[SYNTH_SLOTS];
+        synth_gains(gain);
+        for (int f = 0; f < 2 * n; f++)
+            gm_acc[f] = 0;
+        gmsynth_mix(gm_acc, n, gain);
+    }
     for (int f = 0; f < 2 * n; f++) {
-        /* Same headroom as the DS mixer: 16 full channels would clip. */
-        int32_t v = acc[f] / 4 * m / 100;
+        /* Same headroom as the DS mixer: 16 full channels would clip;
+         * the wavetable output is already scaled. */
+        int32_t v = (acc[f] / 4 + (gmsynth_ready() ? gm_acc[f] : 0)) * m / 100;
         out[f] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
     }
 }
@@ -270,6 +283,20 @@ void audio_reset(void)
     for (int ch = 0; ch < SYNTH_CHANNELS; ch++)
         channels[ch].kind = CH_OFF;
     spin_unlock(lock, save);
+}
+
+/* Binds a General MIDI bank under the lock: core 1 may be mixing. */
+bool audio_gm_bind(const void *blob, uint32_t size, void *state, const char **why)
+{
+    spin_lock_unsafe_blocking(lock);
+    bool ok = gmsynth_bind(blob, size, state, why);
+    spin_unlock_unsafe(lock);
+    return ok;
+}
+
+bool audio_gm_ready(void)
+{
+    return gmsynth_ready();
 }
 
 /* ------------------------------------------------------------------------ */

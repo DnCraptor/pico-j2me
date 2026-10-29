@@ -56,7 +56,7 @@ endif()
 include(pico_sdk_import.cmake)
 
 project(pico-j2me C CXX ASM)
-set(PICO_J2ME_VERSION "0.1.1")
+set(PICO_J2ME_VERSION "0.1.2")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -136,6 +136,7 @@ set(PLATFORM_SOURCES
     platform/rp2350/sys_rp2350.c
     ${VIDEO_SOURCE}
     platform/rp2350/audio_rp2350.c
+    platform/rp2350/gmbank.c
     platform/rp2350/settings.c
     platform/rp2350/ui.c
     platform/rp2350/input.cpp

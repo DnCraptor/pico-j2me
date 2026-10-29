@@ -36,6 +36,7 @@ static void usage(void)
         "  --keys SCRIPT      scripted input: ms:key[:up],... (MIDP key codes)\n"
         "  --screenshot FILE  save the last frame as a PPM image on exit\n"
         "  --audio-out FILE   record the sound to a WAV file\n"
+        "  --gm-bank FILE     play MIDI with a General MIDI wavetable bank (gm_bank.bin)\n"
         "  --shot-every MS    also save FILE-0.ppm, FILE-1.ppm, ... every MS ms\n"
         "  --trace-classes    log every class load\n");
     exit(2);
@@ -216,6 +217,9 @@ int main(int argc, char **argv)
             screenshot = argv[++i];
         } else if (strcmp(a, "--runs") == 0 && has) {
             runs = atoi(argv[++i]);
+        } else if (strcmp(a, "--gm-bank") == 0 && has) {
+            if (!host_audio_gm_bank(argv[++i]))
+                return 2;
         } else if (strcmp(a, "--audio-out") == 0 && has) {
             audio_out = argv[++i];
         } else if (strcmp(a, "--shot-every") == 0 && has) {
