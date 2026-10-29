@@ -68,7 +68,7 @@ SECTIONS
         *(EXCLUDE_FILE(*libgcc.a: *libc.a:*lib_a-mem*.o *libm.a:
                        *interp.c.o* *heap.c.o* *thread.c.o* *class.c.o* *string.c.o*
                        *gfx.c.o* *natives_lcdui.c.o* *natives_lang.c.o* *tlsf.c.o*
-                       *video.c.o* *audio_rp2350.c.o* *synth.c.o*) .text*)
+                       *video.c.o* *video_tft.c.o* *audio_rp2350.c.o* *synth.c.o*) .text*)
         *(.fini)
         /* Pull all c'tors into .text */
         *crtbegin.o(.ctors)

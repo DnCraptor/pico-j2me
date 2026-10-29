@@ -42,7 +42,7 @@ bool   sys_mkdirs(const char *dir);         /* creates every missing level */
 /* ---- video (video.c) ---- */
 
 /* The largest phone screen: two 8-bit frame buffers of this many pixels
- * live in SRAM. */
+ * live in SRAM.  video.c: VGA / HDMI; video_tft.c: ST7789 / ILI9341. */
 #define NJ_MAX_PIXELS (240 * 320)
 #define NJ_MAX_W 320
 #define NJ_MAX_H 320
@@ -50,7 +50,7 @@ bool   sys_mkdirs(const char *dir);         /* creates every missing level */
 #define NJ_MAX_CANVAS 640
 
 void video_core1_init(void);                /* core 1: driver, palette */
-void video_core1_vblank(void);              /* core 1: once per frame */
+void video_core1_poll(void);                /* core 1 main loop */
 void video_text_mode(void);                 /* launcher, menus, errors */
 /* The phone screen (w x h, what the game draws) shown through a view of
  * view_w x view_h centred on it: crop-to-view when the sizes differ. */

@@ -42,10 +42,10 @@ echo Ninja: %NINJA%
 echo Source: %SRC%
 
 rem board, video outputs, sound outputs - as wired on the board
-for %%V in (VGA HDMI) do for %%A in (PWM I2S) do (
+for %%V in (VGA HDMI TFT-ST7789 TFT-ST7789V TFT-ILI9341) do for %%A in (PWM I2S) do (
     call :build_one murmulator %%V %%A || exit /b 1
 )
-for %%V in (VGA HDMI) do for %%A in (PWM I2S) do (
+for %%V in (VGA HDMI TFT-ST7789 TFT-ST7789V TFT-ILI9341) do for %%A in (PWM I2S) do (
     call :build_one murmulator2 %%V %%A || exit /b 1
 )
 call :build_one olimex-pico-pc HDMI PWM || exit /b 1
@@ -63,14 +63,21 @@ set "SOUND=%~3"
 set "TAG=%BOARD%-%VIDEO%-%SOUND%"
 set "VGA=OFF"
 set "HDMI=OFF"
+set "TFT=OFF"
+set "ILI=OFF"
+set "INV=OFF"
 set "I2S=OFF"
 if "%VIDEO%"=="VGA" set "VGA=ON"
 if "%VIDEO%"=="HDMI" set "HDMI=ON"
+if "%VIDEO%"=="TFT-ST7789" set "TFT=ON"
+if "%VIDEO%"=="TFT-ST7789V" set "TFT=ON" & set "INV=ON"
+if "%VIDEO%"=="TFT-ILI9341" set "TFT=ON" & set "ILI=ON"
 if "%SOUND%"=="I2S" set "I2S=ON"
 echo.
 echo [%TAG%]
 "%CMAKE%" -S "%SRC%" -B "%BUILD_ROOT%\%TAG%" -G Ninja -DCMAKE_MAKE_PROGRAM="%NINJA%" ^
     -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DPICO_BOARD=%BOARD% ^
-    -DVGA=%VGA% -DHDMI=%HDMI% -DI2S=%I2S% -DI2S_CS4334=OFF >nul || exit /b 1
+    -DVGA=%VGA% -DHDMI=%HDMI% -DTFT=%TFT% -DILI9341=%ILI% -DTFT_INV=%INV% ^
+    -DI2S=%I2S% -DI2S_CS4334=OFF >nul || exit /b 1
 "%CMAKE%" --build "%BUILD_ROOT%\%TAG%" --parallel >nul || exit /b 1
 exit /b 0

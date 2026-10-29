@@ -27,6 +27,11 @@ set(PICO_BOARD "murmulator2" CACHE STRING "Board type")
 
 option(VGA "VGA output" OFF)
 option(HDMI "HDMI output" OFF)
+option(TFT "SPI TFT panel, 320x240 (Murmulator 1.x / 2.0)" OFF)
+option(ILI9341 "TFT: ILI9341 controller (OFF: ST7789)" OFF)
+option(TFT_INV "TFT: inverted colours (INVON), e.g. ST7789V panels" OFF)
+option(TFT_PORTRAIT_FLIP "TFT: turn portrait games the other way" OFF)
+set(TFT_MAX_MHZ "126" CACHE STRING "TFT: PIO clock limit in MHz (SPI clock = half)")
 option(I2S "Sound on an I2S DAC (OFF: PWM)" ON)
 option(I2S_CS4334 "I2S DAC is a CS4334" OFF)
 option(USB_HID "USB keyboard on the native USB port (TinyUSB host)" ON)
@@ -38,7 +43,13 @@ if(${PICO_BOARD} MATCHES "waveshare_rp2350_pizero")
     set(HDMI ON CACHE BOOL "HDMI output" FORCE)
     set(VGA OFF CACHE BOOL "VGA output" FORCE)
 endif()
-if(NOT VGA AND NOT HDMI)
+if(TFT)
+    if(NOT PICO_BOARD STREQUAL "murmulator" AND NOT PICO_BOARD STREQUAL "murmulator2")
+        message(FATAL_ERROR "TFT: supported on Murmulator 1.x / 2.0 (murmulator, murmulator2)")
+    endif()
+    set(VGA OFF)
+    set(HDMI OFF)
+elseif(NOT VGA AND NOT HDMI)
     set(HDMI ON)
 endif()
 
@@ -69,6 +80,7 @@ add_subdirectory(drivers/audio)
 add_subdirectory(drivers/vga-nextgen)
 add_subdirectory(drivers/hdmi)
 add_subdirectory(drivers/graphics)
+add_subdirectory(drivers/st7789)
 
 # ---------------------------------------------------------------------------
 # The class library: built with a JDK 8 javac (javac 9+ cannot target the
@@ -113,11 +125,16 @@ add_custom_target(classlib DEPENDS ${CLASSLIB_JAR})
 
 file(GLOB CORE_SOURCES CONFIGURE_DEPENDS
     src/vm/*.c src/util/*.c src/midp/*.c src/audio/*.c)
+if(TFT)
+    set(VIDEO_SOURCE platform/rp2350/video_tft.c)
+else()
+    set(VIDEO_SOURCE platform/rp2350/video.c)
+endif()
 set(PLATFORM_SOURCES
     platform/rp2350/main.c
     platform/rp2350/pal_rp2350.c
     platform/rp2350/sys_rp2350.c
-    platform/rp2350/video.c
+    ${VIDEO_SOURCE}
     platform/rp2350/audio_rp2350.c
     platform/rp2350/settings.c
     platform/rp2350/ui.c
@@ -182,12 +199,32 @@ else()
 endif()
 set(BUILD_NAME "${BUILD_NAME}-j2me")
 
-if(HDMI)
-    target_link_libraries(${PROJECT_NAME} PRIVATE hdmi)
+if(TFT)
+    target_link_libraries(${PROJECT_NAME} PRIVATE st7789)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE TFT TFT_MAX_MHZ=${TFT_MAX_MHZ})
+    if(ILI9341)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE ILI9341)
+        set(BUILD_NAME "${BUILD_NAME}-TFT-ILI9341")
+        if(TFT_INV)
+            set(BUILD_NAME "${BUILD_NAME}-INV")
+        endif()
+    elseif(TFT_INV)
+        set(BUILD_NAME "${BUILD_NAME}-TFT-ST7789V")
+    else()
+        set(BUILD_NAME "${BUILD_NAME}-TFT-ST7789")
+    endif()
+    if(TFT_INV)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE TFT_INV)
+    endif()
+    if(TFT_PORTRAIT_FLIP)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE TFT_PORTRAIT_FLIP)
+    endif()
+elseif(HDMI)
+    target_link_libraries(${PROJECT_NAME} PRIVATE graphics hdmi)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HDMI)
     set(BUILD_NAME "${BUILD_NAME}-HDMI")
 else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE vga-nextgen)
+    target_link_libraries(${PROJECT_NAME} PRIVATE graphics vga-nextgen)
     target_compile_definitions(${PROJECT_NAME} PRIVATE VGA)
     set(BUILD_NAME "${BUILD_NAME}-VGA")
 endif()
@@ -211,7 +248,6 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    graphics
     audio
     ps2kbd
     nespad

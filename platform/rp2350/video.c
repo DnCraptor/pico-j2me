@@ -81,7 +81,7 @@ void video_core1_init(void)
 }
 
 /* Core 1, once per frame (graphics_frame_count changed). */
-void __not_in_flash_func(video_core1_vblank)(void)
+static void __not_in_flash_func(video_core1_vblank)(void)
 {
     uint32_t seq = want_seq;
     if (seq == done_seq)
@@ -94,6 +94,16 @@ void __not_in_flash_func(video_core1_vblank)(void)
         shown_buffer = buf;
     __dmb();
     done_seq = seq;
+}
+
+/* Core 1 main loop: requests are applied in the vertical blank. */
+void __not_in_flash_func(video_core1_poll)(void)
+{
+    static uint32_t frame;
+    if (frame != graphics_frame_count) {
+        frame = graphics_frame_count;
+        video_core1_vblank();
+    }
 }
 
 static void request(int mode, int buf, int w, int h)

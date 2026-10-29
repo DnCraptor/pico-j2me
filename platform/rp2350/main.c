@@ -20,7 +20,6 @@
 #include "hardware/watchdog.h"
 #include "hardware/sync.h"
 
-#include "graphics.h"
 #include "ff.h"
 
 #include "../../src/vm/vm.h"
@@ -103,12 +102,8 @@ static void __not_in_flash_func(core1_main)(void)
     input_core1_init();
     audio_core1_init();
     core1_ready = true;
-    uint32_t frame = graphics_frame_count;
     for (;;) {
-        if (frame != graphics_frame_count) {
-            frame = graphics_frame_count;
-            video_core1_vblank();
-        }
+        video_core1_poll();
         input_core1_poll();
         audio_core1_poll();
         tight_loop_contents();

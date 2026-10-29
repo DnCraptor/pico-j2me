@@ -16,8 +16,8 @@ Current version: **0.1.1** (hot-fix).
 
 | Board | Firmware prefix | Video | Sound |
 |---|---|---|---|
-| MURMULATOR 1.x | `m1p2` | VGA, HDMI | PWM, I2S |
-| MURMULATOR 2.0 | `m2p2` | VGA, HDMI | PWM, I2S |
+| MURMULATOR 1.x | `m1p2` | VGA, HDMI, TFT (ST7789 / ILI9341) | PWM, I2S |
+| MURMULATOR 2.0 | `m2p2` | VGA, HDMI, TFT (ST7789 / ILI9341) | PWM, I2S |
 | Olimex RP2040-PICO-PC with a Pico 2 | `PCp2` | HDMI (DVI connector) | PWM (3.5 mm jack) |
 | Waveshare RP2350-PiZero | `z0p2` | mini-HDMI | I2S (an external PCM5102A module on GP10..12) |
 
@@ -68,6 +68,14 @@ The picture is scaled to the 640x480 screen with square pixels where the
 size allows it (176x208 and smaller: 2x and more); 240x320 uses all 480
 lines and two screen pixels per column.
 
+On a **TFT panel** (320x240, ST7789 or ILI9341) the picture is shown 1:1
+in the middle of the panel, without scaling.  Screens up to 320x240 use the
+panel in landscape; taller ones (240x320) switch it to portrait, so the
+board is turned by 90 degrees for those games (`TFT_PORTRAIT_FLIP` turns
+the picture the other way).  The game list and the menus are always in
+landscape.  TFT firmware: `-TFT-ST7789`, `-TFT-ST7789V` (inverted colours)
+and `-TFT-ILI9341`.
+
 Controls:
 
 | Keyboard | Gamepad | Phone |
@@ -103,7 +111,11 @@ cmake --build build
 ```
 
 Options: `PICO_BOARD` (`murmulator`, `murmulator2`, `olimex-pico-pc`,
-`waveshare_rp2350_pizero`), `VGA` / `HDMI`, `I2S` (`OFF` = PWM),
+`waveshare_rp2350_pizero`), `VGA` / `HDMI` / `TFT` (Murmulator 1.x / 2.0
+only; with `ILI9341` for that controller instead of ST7789, `TFT_INV` for
+panels with inverted colours such as ST7789V, `TFT_PORTRAIT_FLIP`,
+`TFT_MAX_MHZ` - the PIO clock limit, 126 by default: a 63 MHz SPI clock),
+`I2S` (`OFF` = PWM),
 `I2S_CS4334`, `USB_HID` (USB keyboard, on by default), `CPU_MHZ` (378 by
 default, 252 on the PiZero).
 
