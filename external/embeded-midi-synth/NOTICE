@@ -1,8 +1,9 @@
 pico-j2me: these four files are taken as they are from pico-speccy
 (DnCraptor/pico-speccy, external/embeded-midi-synth), with this NOTICE.
-The author's permission quoted below was granted for pico-spec; that it
-also covers pico-j2me has to be confirmed with the author (xrip).  The
-engine is compiled into src/audio/gmsynth.c.
+The author (xrip) has given his EXPRESS PERMISSION to use and
+redistribute them as part of pico-j2me as well (2026-10-29).  The engine
+is compiled into src/audio/gmsynth.c.  The rest of this notice, sound
+banks included, applies to pico-j2me in the same way.
 
 embeded-midi-synth — fixed-point General MIDI wavetable synthesis engine
 =========================================================================

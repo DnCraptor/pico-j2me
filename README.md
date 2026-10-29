@@ -209,3 +209,10 @@ the built-in font (`src/midp/font_data.c`, DejaVu Sans, see
 The drivers in `drivers/` and the files taken from pico-gameboy keep their
 own licenses (the PS/2 keyboard driver is GPL-2.0-or-later, which applies
 to the firmware as a whole); TLSF is BSD-licensed (`external/tlsf`).
+
+The General MIDI wavetable engine (`external/embeded-midi-synth`) is by
+[xrip](https://github.com/xrip), included with his express permission
+(see its [NOTICE](external/embeded-midi-synth/NOTICE)); the bank packers
+`tools/dls_pack.py` and `tools/gus_pack.py` come from pico-speccy.  No
+sound bank is included: banks made from Microsoft's `gm.dls` are not
+redistributable.
