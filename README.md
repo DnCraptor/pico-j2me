@@ -169,7 +169,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it works.
 
 ## Status and limitations
 
-- First port: built for every board, not yet verified on hardware.
 - The synthesizer uses simple waveforms (one per family of General MIDI
   instruments); MP3 and AMR are not supported.
 - No networking; no touch screen / pointer input.
