@@ -19,6 +19,9 @@ typedef struct Zip Zip;
 
 /* Opens an archive kept in memory (not copied; must outlive the Zip). */
 Zip *zip_open_mem(const uint8_t *data, uint32_t size);
+/* Read-only XIP archive: scan its central directory in place, without RAM indexes.
+ * Only one such archive may be open at once (the embedded class library). */
+Zip *zip_open_rom(const uint8_t *data, uint32_t size);
 /* Opens an archive file; entries are read from disk on demand. */
 Zip *zip_open_file(const char *path);
 void zip_close(Zip *z);

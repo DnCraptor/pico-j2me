@@ -4,6 +4,7 @@
  */
 #include "gfx.h"
 #include "../pal/pal_sys.h"
+#include "../vm/vm.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -265,7 +266,7 @@ void gfx_blit(Surface *dst, const Clip *c, const Surface *src, int sx, int sy, i
     if (src == dst) {
         tmp = pal_malloc((size_t)w * h * 2);
         if (!tmp)
-            return;
+            nj_fatal("out of native memory (self-blit)");
         for (int y = 0; y < h; y++)
             memcpy(tmp + y * w, src->px + (sy + y) * src->w + sx, (size_t)w * 2);
         spx = tmp;

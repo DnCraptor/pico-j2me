@@ -122,6 +122,8 @@ Class *class_array_of(Class *elem)
         return elem->array_class;
     size_t n = strlen(elem->name);
     char  *name = pal_malloc(n + 4);
+    if (!name)
+        nj_fatal("out of native memory (array class name)");
     if (elem->flags & CF_ARRAY)
         sprintf(name, "[%s", elem->name);
     else
@@ -148,6 +150,8 @@ static Class *load_array(const char *name)
             return NULL;
         }
         char *elem = pal_malloc(n);
+        if (!elem)
+            nj_fatal("out of native memory (array component name)");
         memcpy(elem, name + 2, n - 3);
         elem[n - 3] = 0;
         Class *e = class_load(elem);
@@ -309,6 +313,8 @@ Class *class_load(const char *name)
 
     size_t   n = strlen(name);
     char    *path = pal_malloc(n + 7);
+    if (!path)
+        nj_fatal("out of native memory (class path)");
     memcpy(path, name, n);
     memcpy(path + n, ".class", 7);
     uint8_t *data = NULL;

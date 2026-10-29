@@ -215,7 +215,9 @@ static int run_vm(const char *path, GameSettings *s)
     vm_init(&opt);
     midp_init();
 
-    Zip *classlib = zip_open_mem(classlib_bin, (uint32_t)(classlib_bin_end - classlib_bin));
+    /* The embedded classlib and its ZIP directory reside in XIP flash.
+     * Never duplicate the central-directory index in native RAM. */
+    Zip *classlib = zip_open_rom(classlib_bin, (uint32_t)(classlib_bin_end - classlib_bin));
     if (!classlib)
         pal_fatal("The built-in class library is damaged.");
     res_set_system(classlib);
@@ -286,6 +288,8 @@ int main(void)
     for (;;) {
         if (!path)
             path = ui_launcher();
+        if (!path)
+            pal_fatal("Out of native memory selecting a MIDlet");
         GameSettings s;
         settings_load(path, &s);
         int code = run_vm(path, &s);

@@ -382,15 +382,19 @@ static int Image_initRegion(Thread *t, Slot *args, Slot *ret)
          * 16-bit values. */
         uint16_t *a16 = pal_malloc(sizeof(uint16_t) * (size_t)src.w * src.h);
         uint16_t *o16 = pal_malloc(sizeof(uint16_t) * (size_t)dw * dh);
-        if (a16 && o16) {
-            for (int i = 0; i < src.w * src.h; i++)
-                a16[i] = src.alpha[i];
-            Surface as = {a16, NULL, src.w, src.h}, ao = {o16, NULL, dw, dh};
-            gfx_blit(&ao, &all, &as, x, y, w, h, tr, 0, 0);
-            uint8_t *al = ARRAY_DATA(GET_REF(dst, F.img_alpha), uint8_t);
-            for (int i = 0; i < dw * dh; i++)
-                al[i] = (uint8_t)o16[i];
+        if (!a16 || !o16) {
+            pal_free(a16);
+            pal_free(o16);
+            vm_throw(t, vm.oom);
+            return NATIVE_OK;
         }
+        for (int i = 0; i < src.w * src.h; i++)
+            a16[i] = src.alpha[i];
+        Surface as = {a16, NULL, src.w, src.h}, ao = {o16, NULL, dw, dh};
+        gfx_blit(&ao, &all, &as, x, y, w, h, tr, 0, 0);
+        uint8_t *al = ARRAY_DATA(GET_REF(dst, F.img_alpha), uint8_t);
+        for (int i = 0; i < dw * dh; i++)
+            al[i] = (uint8_t)o16[i];
         pal_free(a16);
         pal_free(o16);
     }

@@ -66,9 +66,15 @@ static uint32_t jad_len;
 
 void res_set_jad(const uint8_t *data, uint32_t len)
 {
+    if (len == UINT32_MAX)
+        nj_fatal("out of native memory (JAD length overflow)");
+    uint8_t *copy = pal_malloc((size_t)len + 1);
+    if (!copy)
+        nj_fatal("out of native memory (JAD data)");
+    memcpy(copy, data, len);
+    copy[len] = 0;
     pal_free(jad_data);
-    jad_data = pal_malloc(len + 1);
-    memcpy(jad_data, data, len);
+    jad_data = copy;
     jad_len = len;
 }
 

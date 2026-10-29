@@ -144,6 +144,9 @@ string(TIMESTAMP NJ_BUILD_EPOCH "%s" UTC)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     NJ_VERSION="${PICO_J2ME_VERSION}"
     NJ_BUILD_EPOCH=${NJ_BUILD_EPOCH}LL
+    # pico_malloc is an INTERFACE library compiled into this executable.
+    # Its default is panic() on malloc failure, before callers see NULL.
+    PICO_MALLOC_PANIC=0
     # core 0 runs the VM: the interpreter and the collector recurse little,
     # but the class loader and the natives use some stack
     PICO_STACK_SIZE=0x4000

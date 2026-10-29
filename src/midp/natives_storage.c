@@ -117,6 +117,7 @@ static int Storage_list(Thread *t, Slot *args, Slot *ret)
 {
     char **names = NULL;
     int    n = 0, cap = 0;
+    bool   oom = false;
     const char *dir = pal_data_dir();
     PalDir *d = dir ? pal_opendir(dir) : NULL;
     if (d) {
@@ -126,7 +127,11 @@ static int Storage_list(Thread *t, Slot *args, Slot *ret)
             if (len <= ext || strcmp(e + len - ext, EXT) != 0)
                 continue;
             char *name = pal_malloc((len - ext) / 2 + 1);
-            if (!name || !decode_name(e, len - ext, name)) {
+            if (!name) {
+                oom = true;
+                break;
+            }
+            if (!decode_name(e, len - ext, name)) {
                 pal_free(name);
                 continue;
             }
@@ -135,6 +140,7 @@ static int Storage_list(Thread *t, Slot *args, Slot *ret)
                 char **grown = pal_realloc(names, sizeof(char *) * (size_t)cap);
                 if (!grown) {
                     pal_free(name);
+                    oom = true;
                     break;
                 }
                 names = grown;
@@ -143,7 +149,9 @@ static int Storage_list(Thread *t, Slot *args, Slot *ret)
         }
         pal_closedir(d);
     }
-    Array *a = vm_new_array(t, class_array_of(vm.c_String), n);
+    if (oom)
+        vm_throw(t, vm.oom);
+    Array *a = oom ? NULL : vm_new_array(t, class_array_of(vm.c_String), n);
     for (int i = 0; i < n && a; i++) {
         Object *s = str_new_utf8(t, names[i]);
         if (!s)

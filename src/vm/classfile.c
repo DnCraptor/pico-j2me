@@ -251,6 +251,8 @@ Class *classfile_parse(const uint8_t *data, uint32_t len, const char **err)
     uint16_t *iface_idx = NULL;
     if (c->n_interfaces) {
         iface_idx = pal_malloc(c->n_interfaces * sizeof *iface_idx);
+        if (!iface_idx)
+            nj_fatal("out of native memory (class interfaces)");
         for (int i = 0; i < c->n_interfaces; i++)
             iface_idx[i] = u2(&r);
     }

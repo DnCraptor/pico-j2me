@@ -177,6 +177,11 @@ static int Class_getName(Thread *t, Slot *args, Slot *ret)
     const char *n = class_from_mirror(THIS)->name;
     size_t      len = strlen(n);
     char       *buf = pal_malloc(len + 1);
+    if (!buf) {
+        vm_throw(t, vm.oom);
+        ret->ref = NULL;
+        return NATIVE_OK;
+    }
     for (size_t i = 0; i <= len; i++)
         buf[i] = n[i] == '/' ? '.' : n[i];
     ret->ref = str_new_utf8(t, buf);

@@ -40,6 +40,8 @@ typedef struct {
 static Channel       channels[SYNTH_CHANNELS];
 static spin_lock_t  *lock;
 static i2s_config_t  i2s;
+/* DMA never needs malloc, even on a board without PSRAM. */
+static uint32_t      hw_dma_buffer[BLOCK];
 static int16_t       block[2][BLOCK * 2];
 static int           dma_block = -1;
 static int           prepared_block = -1;
@@ -198,6 +200,7 @@ void audio_core1_init(void)
     i2s = i2s_get_default_config();
     i2s.sample_freq = MIX_RATE;
     i2s.dma_trans_count = BLOCK;
+    i2s.dma_buf = (uint16_t *)hw_dma_buffer;
     i2s_volume(&i2s, 0);
     i2s_init(&i2s);
 }

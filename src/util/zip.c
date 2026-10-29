@@ -19,6 +19,9 @@ struct Zip {
     ZipEntry     **buckets;
     uint32_t       nbuckets;
     char          *names;
+    bool           rom;     /* XIP classlib: directory stays in flash */
+    uint32_t       rom_cd_off, rom_cd_size;
+    ZipEntry       rom_entry; /* one temporary lookup result, not reentrant */
 };
 
 static uint32_t name_hash(const char *s)
@@ -50,28 +53,43 @@ static uint32_t le32(const uint8_t *p)
 
 static int parse(Zip *z)
 {
-    /* Locate the end-of-central-directory record. */
-    uint32_t tail = z->size < 65557 ? z->size : 65557;
-    uint8_t *buf = pal_malloc(tail);
-    if (!buf || read_at(z, z->size - tail, buf, tail) != 0) {
-        pal_free(buf);
-        return -1;
-    }
-    int eocd = -1;
-    for (int i = (int)tail - 22; i >= 0; i--) {
-        if (le32(buf + i) == 0x06054b50) {
-            eocd = i;
-            break;
+    /* Search the last 64 KiB for EOCD with a 1 KiB stack buffer instead
+     * of a 65 KiB malloc. Overlap chunks by 21 bytes for split headers. */
+    uint8_t buf[1024];
+    uint8_t eocd[22];
+    uint32_t lower = z->size > 65557u ? z->size - 65557u : 0;
+    uint32_t upper = z->size;
+    bool found = false;
+    while (upper > lower && !found) {
+        uint32_t first = upper - lower > sizeof buf ? upper - sizeof buf : lower;
+        uint32_t n = upper - first;
+        if (read_at(z, first, buf, n) != 0)
+            return -1;
+        for (int i = (int)n - 22; i >= 0; --i) {
+            if (le32(buf + i) == 0x06054b50u) {
+                memcpy(eocd, buf + i, sizeof eocd);
+                found = true;
+                break;
+            }
         }
+        if (first == lower)
+            break;
+        upper = first + 21;
     }
-    if (eocd < 0) {
-        pal_free(buf);
+    if (!found)
         return -1;
+
+    uint32_t count = le16(eocd + 10);
+    uint32_t cd_size = le32(eocd + 12);
+    uint32_t cd_off = le32(eocd + 16);
+    if (cd_off > z->size || cd_size > z->size - cd_off)
+        return -1;
+    if (z->rom) {
+        z->rom_cd_off = cd_off;
+        z->rom_cd_size = cd_size;
+        z->n = count;
+        return 0; /* no malloc; all ZIP metadata stays in XIP flash */
     }
-    uint32_t count = le16(buf + eocd + 10);
-    uint32_t cd_size = le32(buf + eocd + 12);
-    uint32_t cd_off = le32(buf + eocd + 16);
-    pal_free(buf);
 
     uint8_t *cd = pal_malloc(cd_size ? cd_size : 1);
     if (!cd || read_at(z, cd_off, cd, cd_size) != 0) {
@@ -139,6 +157,17 @@ Zip *zip_open_mem(const uint8_t *data, uint32_t size)
     return finish_open(z);
 }
 
+Zip *zip_open_rom(const uint8_t *data, uint32_t size)
+{
+    /* One embedded classlib per VM. No native allocation even on startup. */
+    static Zip z;
+    memset(&z, 0, sizeof z);
+    z.mem = data;
+    z.size = size;
+    z.rom = true;
+    return parse(&z) == 0 ? &z : NULL;
+}
+
 Zip *zip_open_file(const char *path)
 {
     PalFile *f = pal_fopen(path, false);
@@ -156,7 +185,7 @@ Zip *zip_open_file(const char *path)
 
 void zip_close(Zip *z)
 {
-    if (!z)
+    if (!z || z->rom) /* ROM archive has static storage and no allocations */
         return;
     if (z->file)
         pal_fclose(z->file);
@@ -170,6 +199,38 @@ ZipEntry *zip_find(Zip *z, const char *name)
 {
     if (name[0] == '/')
         name++;
+    if (z->rom) {
+        /* The embedded JAR's central directory is already in flash.
+         * Parse one entry at a time; do not copy its index into SRAM. */
+        const uint8_t *cd = z->mem + z->rom_cd_off;
+        uint32_t pos = 0;
+        size_t want = strlen(name);
+        for (uint32_t i = 0; i < z->n; ++i) {
+            if (pos > z->rom_cd_size || z->rom_cd_size - pos < 46 ||
+                le32(cd + pos) != 0x02014b50u)
+                return NULL;
+            uint32_t nlen = le16(cd + pos + 28);
+            uint32_t xlen = le16(cd + pos + 30);
+            uint32_t clen = le16(cd + pos + 32);
+            uint32_t remain = z->rom_cd_size - pos - 46;
+            if (nlen > remain || xlen > remain - nlen ||
+                clen > remain - nlen - xlen)
+                return NULL;
+            if (nlen == want && memcmp(cd + pos + 46, name, nlen) == 0) {
+                ZipEntry *e = &z->rom_entry;
+                e->name = name;
+                e->hash = name_hash(name);
+                e->method = le16(cd + pos + 10);
+                e->csize = le32(cd + pos + 20);
+                e->usize = le32(cd + pos + 24);
+                e->local_off = le32(cd + pos + 42);
+                e->next = NULL;
+                return e;
+            }
+            pos += 46 + nlen + xlen + clen;
+        }
+        return NULL;
+    }
     uint32_t h = name_hash(name);
     for (ZipEntry *e = z->buckets[h & (z->nbuckets - 1)]; e; e = e->next)
         if (e->hash == h && strcmp(e->name, name) == 0)
@@ -181,7 +242,8 @@ uint32_t zip_count(Zip *z) { return z->n; }
 
 ZipEntry *zip_entry(Zip *z, uint32_t index)
 {
-    return index < z->n ? &z->entries[index] : NULL;
+    /* The ROM classlib is looked up by name, not enumerated. */
+    return !z->rom && index < z->n ? &z->entries[index] : NULL;
 }
 
 uint8_t *zip_read(Zip *z, ZipEntry *e, uint32_t *len)
