@@ -10,7 +10,7 @@ in Java and a platform layer - here for the Murmulator boards, with the
 drivers of [pico-gameboy](https://github.com/DnCraptor/pico-gameboy).
 No third-party Java code is used: no KVM, no Sun class libraries.
 
-Current version: **0.1.0** (first port, not yet verified on hardware).
+Current version: **0.1.1** (hot-fix).
 
 ## Supported boards
 
