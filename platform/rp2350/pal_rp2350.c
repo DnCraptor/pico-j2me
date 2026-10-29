@@ -131,7 +131,7 @@ void pal_session_start(GameSettings *s, const char *jar)
     input_flush();
     audio_reset();
     audio_master(s->volume);
-    video_game_mode(canvas_w, canvas_h);
+    video_game_mode(canvas_w, canvas_h, s->view_w, s->view_h);
     audio_pause(false);
 }
 

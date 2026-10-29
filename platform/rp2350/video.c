@@ -8,6 +8,11 @@
  * blank, so a frame is never shown half drawn.  The driver scales the
  * picture to the screen (GRAPHICS_SCALE_FIT: square pixels where they fit).
  *
+ * Crop-to-view: a game made for a screen that is not one of the supported
+ * sizes draws its own size, and a supported view is centred on it - what
+ * is outside the view is not shown, the view's margins beyond the game's
+ * picture are never written (black).
+ *
  * The launcher and the menus use the driver's text mode (CGA colours in
  * slots 200..215).
  */
@@ -31,7 +36,10 @@ static uint8_t text_buf[80 * 30 * 2];
 static uint8_t lut_rg[1024];
 static uint8_t lut_b[32];
 
-static int canvas_w = 240, canvas_h = 320;
+static int canvas_w = 240, canvas_h = 320;   /* what the game draws */
+static int view_w = 240, view_h = 320;       /* what the frame buffers hold */
+/* the part of the canvas that is shown, and where it goes in the view */
+static int src_x, src_y, dst_x, dst_y, copy_w, copy_h;
 
 /* Written by core 0, applied by core 1 in the vertical blank. */
 static volatile int  want_mode = TEXTMODE_DEFAULT;
@@ -122,19 +130,38 @@ static void fill_frame(uint8_t *f, int n)
         p[i] = 0;
 }
 
-void video_game_mode(int w, int h)
+/* One axis of the crop: the canvas range [*src, *src + *n) goes to the
+ * view from *dst. */
+static void crop_axis(int canvas, int view, int *src, int *dst, int *n)
 {
-    if (w > NJ_MAX_W || h > NJ_MAX_H || w * h > NJ_MAX_PIXELS) {
-        w = 240;
-        h = 320;
+    if (canvas >= view) {
+        *src = (canvas - view) / 2;
+        *dst = 0;
+        *n = view;
+    } else {
+        *src = 0;
+        *dst = (view - canvas) / 2;
+        *n = canvas;
+    }
+}
+
+void video_game_mode(int w, int h, int vw, int vh)
+{
+    if (vw > NJ_MAX_W || vh > NJ_MAX_H || vw * vh > NJ_MAX_PIXELS || vw < 1 || vh < 1) {
+        vw = 240;
+        vh = 320;
     }
     canvas_w = w;
     canvas_h = h;
+    view_w = vw;
+    view_h = vh;
+    crop_axis(w, vw, &src_x, &dst_x, &copy_w);
+    crop_axis(h, vh, &src_y, &dst_y, &copy_h);
     fill_frame(frames[0], NJ_MAX_PIXELS);
     fill_frame(frames[1], NJ_MAX_PIXELS);
     back = 1;
     graphics_set_mode(GRAPHICSMODE_DEFAULT);
-    request(GRAPHICSMODE_DEFAULT, 0, w, h);
+    request(GRAPHICSMODE_DEFAULT, 0, vw, vh);
     wait_applied();
 }
 
@@ -142,8 +169,31 @@ void video_game_resume(void)
 {
     int front = shown_buffer < 0 ? 0 : shown_buffer;
     graphics_set_mode(GRAPHICSMODE_DEFAULT);
-    request(GRAPHICSMODE_DEFAULT, front, canvas_w, canvas_h);
+    request(GRAPHICSMODE_DEFAULT, front, view_w, view_h);
     wait_applied();
+}
+
+static inline uint8_t slot(uint32_t c)
+{
+    return (uint8_t)(lut_rg[c & 0x3FF] + lut_b[(c >> 10) & 31]);
+}
+
+/* n pixels of one row, two at a time when the source is word aligned */
+static void __not_in_flash_func(convert_row)(uint8_t *dst, const uint16_t *src, int n)
+{
+    int i = 0;
+    if ((uintptr_t)src & 2) {
+        if (n > 0)
+            dst[i] = slot(src[i]);
+        i = 1;
+    }
+    for (; i + 1 < n; i += 2) {
+        uint32_t two = *(const uint32_t *)(src + i);
+        dst[i] = slot(two & 0xFFFF);
+        dst[i + 1] = slot(two >> 16);
+    }
+    if (i < n)
+        dst[i] = slot(src[i]);
 }
 
 void __not_in_flash_func(video_present)(const uint16_t *px, int w, int h)
@@ -155,26 +205,14 @@ void __not_in_flash_func(video_present)(const uint16_t *px, int w, int h)
     if (back == shown_buffer)
         back ^= 1;
     uint8_t *dst = frames[back];
-    const uint32_t *src = (const uint32_t *)px;
-    int n = w * h;
-    if (((uintptr_t)px & 3) == 0) {
-        for (int i = 0; i < n / 2; i++) {
-            uint32_t two = src[i];
-            uint32_t a = two & 0xFFFF, b = two >> 16;
-            dst[2 * i] = (uint8_t)(lut_rg[a & 0x3FF] + lut_b[(a >> 10) & 31]);
-            dst[2 * i + 1] = (uint8_t)(lut_rg[b & 0x3FF] + lut_b[(b >> 10) & 31]);
-        }
-        if (n & 1) {
-            uint16_t c = px[n - 1];
-            dst[n - 1] = (uint8_t)(lut_rg[c & 0x3FF] + lut_b[(c >> 10) & 31]);
-        }
+    if (copy_w == w && copy_w == view_w && copy_h == h) {
+        convert_row(dst, px, w * h);   /* no crop: one run */
     } else {
-        for (int i = 0; i < n; i++) {
-            uint16_t c = px[i];
-            dst[i] = (uint8_t)(lut_rg[c & 0x3FF] + lut_b[(c >> 10) & 31]);
-        }
+        for (int y = 0; y < copy_h; y++)
+            convert_row(dst + (dst_y + y) * view_w + dst_x,
+                         px + (src_y + y) * w + src_x, copy_w);
     }
-    request(GRAPHICSMODE_DEFAULT, back, w, h);
+    request(GRAPHICSMODE_DEFAULT, back, view_w, view_h);
     back ^= 1;
 }
 

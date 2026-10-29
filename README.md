@@ -50,8 +50,19 @@ SRAM - enough for the smallest MIDlets only.
 2. Put the games (`.jar`, optionally with their `.jad`) on the SD card in
    `/j2me/` (sub-folders are fine).
 3. Pick a game in the list.  **Left / Right** changes the phone screen
-   size of the selected game (240x320 by default; 128x128, 128x160,
-   176x208, 176x220, 208x208, 240x240 and 320x240 are offered).
+   size of the selected game: 128x128, 128x160, 176x208, 176x220, 208x208,
+   240x240, 240x320 or 320x240.
+
+By default a game gets its original screen size when its `.jad` or manifest
+declares one (`Nokia-MIDlet-Original-Display-Size`,
+`Nokia-MIDlet-Target-Display-Size`, `MIDlet-Display-Size`), otherwise
+240x320.  An original size that is none of the sizes above (176x204, say)
+is shown **crop-to-view**: the game draws its own size and the nearest
+supported size is the view, centred on it - what lies outside the view is
+cut off, and where the view is larger than the game's picture the margin
+stays black.  Such a size is offered first in the Left / Right list (and in
+the emulator menu).  A chosen size is saved in the game's `.ini` only when
+it differs from the default.
 
 The picture is scaled to the 640x480 screen with square pixels where the
 size allows it (176x208 and smaller: 2x and more); 240x320 uses all 480

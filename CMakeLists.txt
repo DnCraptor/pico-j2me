@@ -45,7 +45,7 @@ endif()
 include(pico_sdk_import.cmake)
 
 project(pico-j2me C CXX ASM)
-set(PICO_J2ME_VERSION "0.1.0")
+set(PICO_J2ME_VERSION "0.1.1")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)

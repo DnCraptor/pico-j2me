@@ -46,11 +46,15 @@ bool   sys_mkdirs(const char *dir);         /* creates every missing level */
 #define NJ_MAX_PIXELS (240 * 320)
 #define NJ_MAX_W 320
 #define NJ_MAX_H 320
+/* The largest screen a game may draw (crop-to-view shows a part of it). */
+#define NJ_MAX_CANVAS 640
 
 void video_core1_init(void);                /* core 1: driver, palette */
 void video_core1_vblank(void);              /* core 1: once per frame */
 void video_text_mode(void);                 /* launcher, menus, errors */
-void video_game_mode(int w, int h);         /* the phone screen, black */
+/* The phone screen (w x h, what the game draws) shown through a view of
+ * view_w x view_h centred on it: crop-to-view when the sizes differ. */
+void video_game_mode(int w, int h, int view_w, int view_h);
 /* Shows the game picture again after a menu (the frame is kept). */
 void video_game_resume(void);
 void video_present(const uint16_t *px, int w, int h);
@@ -105,14 +109,21 @@ void audio_master(int volume);              /* 0-100 */
 /* ---- per-game settings (settings.c) ---- */
 
 typedef struct GameSettings {
-    int w, h;          /* phone screen */
-    int volume;        /* 0-100 */
+    int w, h;            /* phone screen: what the game sees */
+    int view_w, view_h;  /* what is shown: one of nj_screen_sizes */
+    int orig_w, orig_h;  /* the size the game declares, 0 = none */
+    int volume;          /* 0-100 */
 } GameSettings;
 
 extern const int nj_screen_sizes[][2];
 extern const int nj_num_screen_sizes;
 
 void settings_defaults(GameSettings *s);
+bool settings_supported(int w, int h);
+/* Sets the phone screen and the view that shows it. */
+void settings_set_screen(GameSettings *s, int w, int h);
+/* The game's original size if it declares one, else 240x320. */
+void settings_default_screen(const GameSettings *s, int *w, int *h);
 void settings_load(const char *jar, GameSettings *s);
 void settings_save(const char *jar, const GameSettings *s);
 /* "/j2me/Game.jar" -> "Game" (no directories, no extension) */

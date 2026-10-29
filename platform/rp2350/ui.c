@@ -146,6 +146,46 @@ void ui_message(const char *title, const char *msg, bool show_log)
 }
 
 /* ------------------------------------------------------------------------ */
+/* Screen sizes                                                             */
+
+/* The sizes offered for a game: its own size first when it is not one of
+ * the supported ones (shown crop-to-view), then the supported sizes. */
+static int screen_choices(const GameSettings *s, int out[][2])
+{
+    int n = 0;
+    if (s->orig_w && !settings_supported(s->orig_w, s->orig_h)) {
+        out[n][0] = s->orig_w;
+        out[n][1] = s->orig_h;
+        n++;
+    }
+    for (int i = 0; i < nj_num_screen_sizes && n < 16; i++) {
+        out[n][0] = nj_screen_sizes[i][0];
+        out[n][1] = nj_screen_sizes[i][1];
+        n++;
+    }
+    return n;
+}
+
+static int screen_choice_index(const GameSettings *s, int choices[][2], int n)
+{
+    for (int i = 0; i < n; i++)
+        if (choices[i][0] == s->w && choices[i][1] == s->h)
+            return i;
+    return -1;
+}
+
+/* "176x208", "176x204 original", "176x204 original in 176x208" */
+static void screen_label(const GameSettings *s, char *out, size_t size)
+{
+    bool orig = s->orig_w && s->w == s->orig_w && s->h == s->orig_h;
+    if (s->view_w != s->w || s->view_h != s->h)
+        snprintf(out, size, "%dx%d%s in %dx%d", s->w, s->h, orig ? " original" : "",
+                 s->view_w, s->view_h);
+    else
+        snprintf(out, size, "%dx%d%s", s->w, s->h, orig ? " original" : "");
+}
+
+/* ------------------------------------------------------------------------ */
 /* Launcher                                                                 */
 
 #define MAX_ENTRIES 512
@@ -261,11 +301,12 @@ static void draw_launcher(int sel, int top, int list_rows)
     if (n_entries == 0) {
         snprintf(line, sizeof line, "No .jar / .jad files here. Put games in %s", NJ_HOME_DIR);
     } else if (!entries[sel].dir) {
-        char path[320];
+        char path[320], size[48];
         GameSettings s;
         join(path, sizeof path, cur_dir, entries[sel].name);
         settings_load(path, &s);
-        snprintf(line, sizeof line, "Screen %dx%d  (Left/Right to change)", s.w, s.h);
+        screen_label(&s, size, sizeof size);
+        snprintf(line, sizeof line, "Screen %s  (Left/Right)", size);
     } else {
         line[0] = 0;
     }
@@ -279,16 +320,11 @@ static void change_size(int sel, int dir)
     GameSettings s;
     join(path, sizeof path, cur_dir, entries[sel].name);
     settings_load(path, &s);
-    int i = 0;
-    for (; i < nj_num_screen_sizes; i++)
-        if (nj_screen_sizes[i][0] == s.w && nj_screen_sizes[i][1] == s.h)
-            break;
-    if (i == nj_num_screen_sizes)
-        i = 0;
-    else
-        i = (i + dir + nj_num_screen_sizes) % nj_num_screen_sizes;
-    s.w = nj_screen_sizes[i][0];
-    s.h = nj_screen_sizes[i][1];
+    int choices[16][2] = {{0}};
+    int n = screen_choices(&s, choices);
+    int i = screen_choice_index(&s, choices, n);
+    i = i < 0 ? 0 : (i + dir + n) % n;
+    settings_set_screen(&s, choices[i][0], choices[i][1]);
     settings_save(path, &s);
 }
 
@@ -391,10 +427,11 @@ int ui_game_menu(GameSettings *s, const char *jar)
 {
     video_text_mode();
     ui_keys_reset();
-    int  sel = 0, size_i = 0;
-    for (int i = 0; i < nj_num_screen_sizes; i++)
-        if (nj_screen_sizes[i][0] == s->w && nj_screen_sizes[i][1] == s->h)
-            size_i = i;
+    int  sel = 0;
+    int  choices[16][2] = {{0}};
+    int  n_choices = screen_choices(s, choices);
+    int  size_i = screen_choice_index(s, choices, n_choices);
+    GameSettings shown = *s;   /* the screen chosen in the menu */
     int new_w = s->w, new_h = s->h;
     int result = EXIT_NONE;
     bool done = false;
@@ -405,8 +442,10 @@ int ui_game_menu(GameSettings *s, const char *jar)
         snprintf(line, sizeof line, "Paused: %s", name);
         bar(0, line, C_WHITE, C_BLUE);
         const char *labels[M_COUNT];
-        char screen[40], volume[40];
-        snprintf(screen, sizeof screen, "Screen: %dx%d%s", new_w, new_h,
+        char screen[80], volume[40], size[48];
+        settings_set_screen(&shown, new_w, new_h);
+        screen_label(&shown, size, sizeof size);
+        snprintf(screen, sizeof screen, "Screen: %s%s", size,
                  new_w != s->w || new_h != s->h ? " (restarts)" : "");
         snprintf(volume, sizeof volume, "Volume: %d%%", s->volume);
         labels[M_RESUME] = "Resume";
@@ -436,9 +475,9 @@ int ui_game_menu(GameSettings *s, const char *jar)
         case UI_RIGHT: {
             int d = k == UI_RIGHT ? 1 : -1;
             if (sel == M_SCREEN) {
-                size_i = (size_i + d + nj_num_screen_sizes) % nj_num_screen_sizes;
-                new_w = nj_screen_sizes[size_i][0];
-                new_h = nj_screen_sizes[size_i][1];
+                size_i = size_i < 0 ? 0 : (size_i + d + n_choices) % n_choices;
+                new_w = choices[size_i][0];
+                new_h = choices[size_i][1];
             } else if (sel == M_VOLUME) {
                 s->volume += d * 10;
                 s->volume = s->volume < 0 ? 0 : s->volume > 100 ? 100 : s->volume;
@@ -465,8 +504,7 @@ int ui_game_menu(GameSettings *s, const char *jar)
         }
     }
     if (new_w != s->w || new_h != s->h) {
-        s->w = new_w;
-        s->h = new_h;
+        settings_set_screen(s, new_w, new_h);
         if (result == EXIT_NONE)
             result = EXIT_RESTART_GAME;
     }
