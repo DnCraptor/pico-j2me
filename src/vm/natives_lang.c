@@ -111,6 +111,30 @@ static int Class_forName(Thread *t, Slot *args, Slot *ret)
     return NATIVE_OK;
 }
 
+static bool same_package(const Class *a, const Class *b)
+{
+    const char *sa = strrchr(a->name, '/'), *sb = strrchr(b->name, '/');
+    size_t la = sa ? (size_t)(sa - a->name) : 0, lb = sb ? (size_t)(sb - b->name) : 0;
+    return la == lb && memcmp(a->name, b->name, la) == 0;
+}
+
+/* Class.newInstance access rules: the class must be public or in the
+ * caller's package, the constructor public, or not private and in the
+ * caller's package, or private and of the caller's own class.  Natives run
+ * without a frame of their own, so the top frame is the caller. */
+static bool new_instance_allowed(Thread *t, const Class *c, const Method *init)
+{
+    const Class *caller = t->depth > 0 ? t->frames[t->depth - 1].m->cls : NULL;
+    bool pkg = caller && same_package(caller, c);
+    if (!(c->access & ACC_PUBLIC) && !pkg)
+        return false;
+    if (init->access & ACC_PUBLIC)
+        return true;
+    if (init->access & ACC_PRIVATE)
+        return caller == c;
+    return pkg;
+}
+
 static int Class_newInstance(Thread *t, Slot *args, Slot *ret)
 {
     Class *c = class_from_mirror(THIS);
@@ -123,7 +147,7 @@ static int Class_newInstance(Thread *t, Slot *args, Slot *ret)
         vm_throw_new(t, "java/lang/InstantiationException", c->name);
         return NATIVE_OK;
     }
-    if (!(init->access & ACC_PUBLIC) || !(c->access & ACC_PUBLIC)) {
+    if (!new_instance_allowed(t, c, init)) {
         vm_throw_new(t, "java/lang/IllegalAccessException", c->name);
         return NATIVE_OK;
     }
